@@ -1,9 +1,19 @@
+import { createHash, randomBytes } from 'node:crypto';
 import { getAddress, isAddress, recoverMessageAddress } from 'viem';
 import { CHALLENGE_TTL_MS } from './config.ts';
-import type { Address } from './types.ts';
+import type { Address, AuthRole } from './types.ts';
 import { ServiceError } from './types.ts';
 
 export const COOKIE = 'sid';
+export const LOGIN_FAILED = '账号或密码不正确。';
+export const LOGIN_REQUIRED = '请先登录。';
+
+const DUMMY_PASSWORD_HASH =
+  '$argon2id$v=19$m=65536,t=2,p=1$Cl2Ngowtioxy1ICqJUE6cfrKz+hRoLt+bPxmlXd9OFA$8BS5+G0bVKxCJJZg/QmZ3i/rgufBkc5oPdTi3Jr3Yo0';
+
+export const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+export const LOGIN_MAX_KNOWN = 8;
+export const LOGIN_MAX_UNKNOWN = 20;
 
 export function parseCookies(header: string | null): Record<string, string> {
   const out: Record<string, string> = {};
@@ -18,11 +28,23 @@ export function parseCookies(header: string | null): Record<string, string> {
   return out;
 }
 
-export function sessionCookie(token: string): string {
-  return `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict`;
+export function sessionCookie(
+  token: string,
+  opts?: { secure?: boolean; maxAgeSec?: number },
+): string {
+  let value = `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict`;
+  if (opts?.maxAgeSec != null) value += `; Max-Age=${opts.maxAgeSec}`;
+  if (opts?.secure) value += '; Secure';
+  return value;
 }
 
-export function allowedHost(hostHeader: string | null, port: number): boolean {
+export function clearSessionCookie(opts?: { secure?: boolean }): string {
+  let value = `${COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`;
+  if (opts?.secure) value += '; Secure';
+  return value;
+}
+
+export function loopbackHostAllowed(hostHeader: string | null, port: number): boolean {
   if (!hostHeader) return false;
   const host = hostHeader.trim().toLowerCase();
   const allowed = new Set([
@@ -38,8 +60,136 @@ export function allowedHost(hostHeader: string | null, port: number): boolean {
   return allowed.has(host);
 }
 
+export function publicHostAllowed(
+  hostHeader: string | null,
+  publicOrigin: string,
+): boolean {
+  if (!hostHeader) return false;
+  let url: URL;
+  try {
+    url = new URL(publicOrigin);
+  } catch {
+    return false;
+  }
+  const host = hostHeader.trim().toLowerCase();
+  const hostname = url.hostname.toLowerCase();
+  const expectedPort = url.port || '443';
+  return host === hostname || host === `${hostname}:${expectedPort}`;
+}
+
+export function allowedHost(
+  hostHeader: string | null,
+  port: number,
+  publicOrigin?: string | null,
+): boolean {
+  if (publicOrigin) return publicHostAllowed(hostHeader, publicOrigin);
+  return loopbackHostAllowed(hostHeader, port);
+}
+
+export function healthzHostAllowed(
+  hostHeader: string | null,
+  port: number,
+  publicOrigin?: string | null,
+): boolean {
+  if (loopbackHostAllowed(hostHeader, port)) return true;
+  if (publicOrigin) return publicHostAllowed(hostHeader, publicOrigin);
+  return false;
+}
+
 export function originFromHost(hostHeader: string): string {
   return `http://${hostHeader}`;
+}
+
+export function canonicalOrigin(hostHeader: string, publicOrigin: string | null): string {
+  return publicOrigin ?? originFromHost(hostHeader);
+}
+
+export function hashSessionToken(token: string): string {
+  return createHash('sha256').update(token, 'utf8').digest('hex');
+}
+
+export function credentialFingerprint(passwordHash: string): string {
+  return createHash('sha256').update(passwordHash, 'utf8').digest('hex');
+}
+
+export function randomSessionToken(): string {
+  return randomBytes(32).toString('base64url');
+}
+
+export function isAuthRole(value: string): value is AuthRole {
+  return value === 'merchant' || value === 'promoter';
+}
+
+export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  try {
+    return await Bun.password.verify(password, hash);
+  } catch {
+    return false;
+  }
+}
+
+export async function verifyLoginPassword(
+  username: string,
+  password: string,
+  hashes: { merchant: string; promoter: string },
+): Promise<AuthRole | null> {
+  const hash = isAuthRole(username)
+    ? username === 'merchant'
+      ? hashes.merchant
+      : hashes.promoter
+    : DUMMY_PASSWORD_HASH;
+  const ok = await verifyPassword(password, hash);
+  if (!ok || !isAuthRole(username)) return null;
+  return username;
+}
+
+type AttemptBucket = { count: number; resetAt: number };
+
+export function createLoginLimiter(opts?: {
+  windowMs?: number;
+  maxKnown?: number;
+  maxUnknown?: number;
+  now?: () => number;
+}) {
+  const windowMs = opts?.windowMs ?? LOGIN_WINDOW_MS;
+  const maxKnown = opts?.maxKnown ?? LOGIN_MAX_KNOWN;
+  const maxUnknown = opts?.maxUnknown ?? LOGIN_MAX_UNKNOWN;
+  const now = opts?.now ?? Date.now;
+  const known: Record<AuthRole, AttemptBucket> = {
+    merchant: { count: 0, resetAt: 0 },
+    promoter: { count: 0, resetAt: 0 },
+  };
+  const unknown: AttemptBucket = { count: 0, resetAt: 0 };
+
+  const refresh = (bucket: AttemptBucket) => {
+    const t = now();
+    if (t >= bucket.resetAt) {
+      bucket.count = 0;
+      bucket.resetAt = t + windowMs;
+    }
+  };
+
+  const take = (username: string): AttemptBucket =>
+    isAuthRole(username) ? known[username] : unknown;
+
+  const limitOf = (username: string) =>
+    isAuthRole(username) ? maxKnown : maxUnknown;
+
+  return {
+    blocked(username: string): boolean {
+      const bucket = take(username);
+      refresh(bucket);
+      return bucket.count >= limitOf(username);
+    },
+    fail(username: string) {
+      const bucket = take(username);
+      refresh(bucket);
+      bucket.count += 1;
+    },
+    succeed(role: AuthRole) {
+      known[role] = { count: 0, resetAt: now() + windowMs };
+    },
+  };
 }
 
 export function securityHeaders(): Record<string, string> {

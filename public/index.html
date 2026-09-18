@@ -10,7 +10,53 @@
   </head>
   <body>
     <a class="skip" href="#main">跳到主要内容</a>
-    <div class="shell">
+    <div id="login-shell" class="shell login-shell" hidden>
+      <aside class="sidebar">
+        <a class="wordmark" href="/" aria-label="结算台首页">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>结算台</span>
+        </a>
+      </aside>
+      <div class="workspace">
+        <main id="login-main">
+          <header class="page-heading">
+            <div>
+              <h1>登录结算台</h1>
+              <p>输入账号和密码后进入。</p>
+            </div>
+          </header>
+          <p class="login-funds">资金无实际价值</p>
+          <form id="login-form" class="login-form">
+            <div class="login-field">
+              <label for="login-username">账号</label>
+              <input
+                id="login-username"
+                name="username"
+                autocomplete="username"
+                maxlength="64"
+                required
+              />
+            </div>
+            <div class="login-field">
+              <label for="login-password">密码</label>
+              <input
+                id="login-password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                maxlength="256"
+                required
+              />
+            </div>
+            <p id="login-error" class="field-error" role="alert"></p>
+            <button class="button primary" id="login-submit" type="submit">
+              登录
+            </button>
+          </form>
+        </main>
+      </div>
+    </div>
+    <div class="shell" id="app-shell">
       <aside class="sidebar">
         <a class="wordmark" href="/" aria-label="结算台首页">
           <span class="brand-mark" aria-hidden="true"></span>
@@ -59,6 +105,9 @@
             我的收益
           </button>
         </nav>
+        <div class="sidebar-account" id="account-bar" hidden>
+          <button class="button quiet" id="logout" type="button">退出</button>
+        </div>
       </aside>
       <div class="workspace">
         <main id="main">

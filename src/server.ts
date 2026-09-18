@@ -3,16 +3,28 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
   allowedHost,
+  canonicalOrigin,
+  clearSessionCookie,
   COOKIE,
+  createLoginLimiter,
+  credentialFingerprint,
+  hashSessionToken,
+  healthzHostAllowed,
   issueChallenge,
+  LOGIN_FAILED,
+  LOGIN_REQUIRED,
   originFromHost,
   parseAddress,
   parseCookies,
+  randomSessionToken,
   recoverBoundAddress,
   securityHeaders,
   sessionCookie,
+  verifyLoginPassword,
 } from "./auth.ts";
 import {
+  AUTH_COOKIE_MAX_AGE_SEC,
+  AUTH_SESSION_TTL_MS,
   assertLoopbackBind,
   BODY_LIMIT,
   demoWalletAddress,
@@ -36,6 +48,7 @@ import {
 import { createStore, type Store } from "./store.ts";
 import {
   type AppState,
+  type AuthRole,
   type Chain,
   type PublicOrder,
   type Source,
@@ -181,7 +194,17 @@ export function createApp(opts: {
   const origin = originOf(opts.config.host, opts.config.port);
   const publicDir = opts.publicDir ?? opts.config.publicDir;
   const now = opts.now ?? opts.store.now ?? Date.now;
+  const authEnabled = opts.config.authEnabled === true;
+  const publicOrigin = opts.config.publicOrigin;
+  const secureCookie = !!publicOrigin;
+  const loginLimiter = createLoginLimiter({ now });
   const orderLocks = new Map<string, Promise<unknown>>();
+  const AUTH_DISABLED = new Set([
+    "/api/demo/commission",
+    "/api/demo/wallet",
+    "/api/partner/transfer",
+    "/api/partner/auto",
+  ]);
 
   const lockOrder = <T>(requestId: string, fn: () => Promise<T>): Promise<T> => {
     const run = (orderLocks.get(requestId) ?? Promise.resolve()).then(fn, fn);
@@ -193,15 +216,49 @@ export function createApp(opts: {
     return run;
   };
 
+  const cookieOpts = {
+    secure: secureCookie,
+    maxAgeSec: AUTH_COOKIE_MAX_AGE_SEC,
+  };
+
+  const authCookie = (token: string) =>
+    sessionCookie(token, cookieOpts);
+
   const requireHost = (req: Request) => {
     const host = req.headers.get("host");
-    if (!allowedHost(host, opts.config.port)) {
+    if (!allowedHost(host, opts.config.port, publicOrigin)) {
       throw new ServiceError(403, "请求主机不被允许。");
     }
     return host!;
   };
 
-  const requireSession = (req: Request) => {
+  const requireOrigin = (req: Request, host: string) => {
+    const originHeader = req.headers.get("origin");
+    if (!originHeader || originHeader !== canonicalOrigin(host, publicOrigin)) {
+      throw new ServiceError(403, "请求来源不被允许。");
+    }
+  };
+
+  const fingerprintFor = (role: AuthRole) =>
+    credentialFingerprint(
+      role === "merchant"
+        ? opts.config.merchantPasswordHash
+        : opts.config.promoterPasswordHash,
+    );
+
+  const readAuthSession = (req: Request) => {
+    const sid = parseCookies(req.headers.get("cookie"))[COOKIE];
+    if (!sid) return null;
+    const row = opts.store.getAuthSession(hashSessionToken(sid));
+    if (!row) return null;
+    if (row.credentialFingerprint !== fingerprintFor(row.role)) {
+      opts.store.deleteAuthSession(row.tokenHash);
+      return null;
+    }
+    return { sid, ...row };
+  };
+
+  const requireLegacySession = (req: Request) => {
     const sid = parseCookies(req.headers.get("cookie"))[COOKIE];
     if (!sid || !opts.store.hasSession(sid)) {
       throw new ServiceError(401, "请从本页重新打开结算台。");
@@ -209,15 +266,47 @@ export function createApp(opts: {
     return sid;
   };
 
+  const requireAuthSession = (req: Request) => {
+    const session = readAuthSession(req);
+    if (!session) throw new ServiceError(401, LOGIN_REQUIRED);
+    return session;
+  };
+
   const requireMutation = async (req: Request) => {
     const host = requireHost(req);
-    const sid = requireSession(req);
-    const originHeader = req.headers.get("origin");
-    if (!originHeader || originHeader !== originFromHost(host)) {
-      throw new ServiceError(403, "请求来源不被允许。");
-    }
+    requireOrigin(req, host);
     const body = await readJson(req);
-    return { sid, body };
+    if (authEnabled) {
+      const session = requireAuthSession(req);
+      return { sid: session.sid, role: session.role, body, host };
+    }
+    const sid = requireLegacySession(req);
+    return { sid, role: null as AuthRole | null, body, host };
+  };
+
+  const challengeDomain = (host: string) =>
+    publicOrigin ?? originFromHost(host);
+
+  const denyAuthPath = (role: AuthRole | null, pathname: string) => {
+    if (!authEnabled) return;
+    if (AUTH_DISABLED.has(pathname)) {
+      throw new ServiceError(403, "当前账号不能执行该操作。");
+    }
+    const payMatch = /^\/api\/demo\/orders\/[^/]+\/pay$/.exec(pathname);
+    const merchantPath =
+      pathname === "/api/demo/orders" ||
+      pathname === "/api/admin/pause" ||
+      pathname === "/api/admin/run" ||
+      !!payMatch;
+    const promoterPath =
+      pathname === "/api/partner/wallet/challenge" ||
+      pathname === "/api/partner/wallet/verify";
+    if (role === "promoter" && merchantPath) {
+      throw new ServiceError(403, "当前账号不能执行该操作。");
+    }
+    if (role === "merchant" && promoterPath) {
+      throw new ServiceError(403, "当前账号不能执行该操作。");
+    }
   };
 
   const orderDemoEnabled = () =>
@@ -322,7 +411,8 @@ export function createApp(opts: {
     });
   };
 
-  const state = async (): Promise<AppState> => {
+  const state = async (role: AuthRole | null): Promise<AppState> => {
+    const promoterView = authEnabled && role === "promoter";
     let wallet = { token: "", gas: "" };
     let configured = true;
     let networkError: string | undefined;
@@ -349,7 +439,7 @@ export function createApp(opts: {
       opts.config.orderDemo === true && opts.source.kind === "beefapi";
     let orders: PublicOrder[] | undefined;
     let orderError: string | undefined;
-    if (orderDemo) {
+    if (orderDemo && !promoterView) {
       try {
         orders = await loadPublicOrders();
       } catch (err) {
@@ -357,23 +447,42 @@ export function createApp(opts: {
         orderError = sanitizeError(err);
       }
     }
-    const visibleError = sourceError ?? orderError;
-    return {
+    const visibleError = promoterView ? undefined : sourceError ?? orderError;
+    const body: AppState = {
       network: networkMeta(opts.config.chain.chainId, opts.config.chain.token, {
-        configured,
-        error: networkError,
+        configured: promoterView ? configured : configured,
+        error: promoterView ? undefined : networkError,
       }),
-      paused: opts.store.isPaused(),
-      wallet,
-      partner,
+      paused: promoterView ? false : opts.store.isPaused(),
+      wallet: promoterView ? { token: "", gas: "" } : wallet,
+      partner: promoterView ? { ...partner, autoSettle: false } : partner,
       payouts: opts.store.publicPayouts(),
       source: opts.source.kind,
       minAmount: opts.config.minAmount.toString(),
       commission: commissionFromBalances(opts.source.kind, sourceBalances),
       orderDemo,
-      ...(orders ? { orders } : orderDemo ? { orders: [] } : {}),
-      ...(visibleError ? { sourceError: visibleError } : {}),
+      ...(authEnabled ? { authEnabled: true, role: role ?? undefined } : {}),
     };
+    if (!promoterView) {
+      if (orders) body.orders = orders;
+      else if (orderDemo) body.orders = [];
+    }
+    if (visibleError) body.sourceError = visibleError;
+    return body;
+  };
+
+  const issueAuthSession = (role: AuthRole, previousSid?: string) => {
+    if (previousSid) {
+      opts.store.deleteAuthSession(hashSessionToken(previousSid));
+    }
+    const token = randomSessionToken();
+    opts.store.createAuthSession({
+      tokenHash: hashSessionToken(token),
+      role,
+      credentialFingerprint: fingerprintFor(role),
+      expiresAt: now() + AUTH_SESSION_TTL_MS,
+    });
+    return token;
   };
 
   const fetch = async (req: Request): Promise<Response> => {
@@ -382,6 +491,13 @@ export function createApp(opts: {
       if (req.method !== "GET" && req.method !== "POST") {
         return json(405, { error: "不支持的请求方法。" });
       }
+      if (req.method === "GET" && url.pathname === "/healthz") {
+        const host = req.headers.get("host");
+        if (!healthzHostAllowed(host, opts.config.port, publicOrigin)) {
+          throw new ServiceError(403, "请求主机不被允许。");
+        }
+        return json(200, { ok: true });
+      }
       if (req.method === "GET" && STATIC_FILES[url.pathname]) {
         requireHost(req);
         const spec = STATIC_FILES[url.pathname];
@@ -389,12 +505,14 @@ export function createApp(opts: {
           ...securityHeaders(),
           "Content-Type": spec.type,
         };
-        const cookies = parseCookies(req.headers.get("cookie"));
-        if (!cookies[COOKIE] || !opts.store.hasSession(cookies[COOKIE])) {
-          headers = {
-            ...headers,
-            "Set-Cookie": sessionCookie(opts.store.createSession()),
-          };
+        if (!authEnabled) {
+          const cookies = parseCookies(req.headers.get("cookie"));
+          if (!cookies[COOKIE] || !opts.store.hasSession(cookies[COOKIE])) {
+            headers = {
+              ...headers,
+              "Set-Cookie": sessionCookie(opts.store.createSession()),
+            };
+          }
         }
         const filePath = join(publicDir, spec.file);
         if (!existsSync(filePath)) {
@@ -409,14 +527,78 @@ export function createApp(opts: {
       }
 
       requireHost(req);
+      if (req.method === "GET" && url.pathname === "/api/auth/session") {
+        if (!authEnabled) {
+          return json(200, {
+            authenticated: false,
+            role: null,
+            authEnabled: false,
+          });
+        }
+        const session = readAuthSession(req);
+        return json(200, {
+          authenticated: !!session,
+          role: session?.role ?? null,
+          authEnabled: true,
+        });
+      }
       if (req.method === "GET" && url.pathname === "/api/state") {
-        requireSession(req);
-        return json(200, await state());
+        if (authEnabled) {
+          const session = requireAuthSession(req);
+          return json(200, await state(session.role));
+        }
+        requireLegacySession(req);
+        return json(200, await state(null));
       }
       if (req.method !== "POST")
         return json(405, { error: "不支持的请求方法。" });
 
-      const { sid, body } = await requireMutation(req);
+      if (url.pathname === "/api/auth/login") {
+        if (!authEnabled) return json(404, { error: "找不到该接口。" });
+        const host = requireHost(req);
+        requireOrigin(req, host);
+        const body = await readJson(req);
+        const username =
+          typeof body.username === "string" ? body.username.trim() : "";
+        const password = typeof body.password === "string" ? body.password : "";
+        if (!username || !password) {
+          throw new ServiceError(400, "请填写账号和密码。");
+        }
+        const blocked = loginLimiter.blocked(username);
+        const role = await verifyLoginPassword(username, password, {
+          merchant: opts.config.merchantPasswordHash,
+          promoter: opts.config.promoterPasswordHash,
+        });
+        if (blocked || !role) {
+          if (!blocked) loginLimiter.fail(username);
+          throw new ServiceError(401, LOGIN_FAILED);
+        }
+        loginLimiter.succeed(role);
+        const previous = parseCookies(req.headers.get("cookie"))[COOKIE];
+        const token = issueAuthSession(role, previous);
+        return json(
+          200,
+          { ok: true, role },
+          { "Set-Cookie": authCookie(token) },
+        );
+      }
+
+      if (url.pathname === "/api/auth/logout") {
+        if (!authEnabled) return json(404, { error: "找不到该接口。" });
+        const host = requireHost(req);
+        requireOrigin(req, host);
+        const previous = parseCookies(req.headers.get("cookie"))[COOKIE];
+        if (previous) opts.store.deleteAuthSession(hashSessionToken(previous));
+        return json(
+          200,
+          { ok: true },
+          { "Set-Cookie": clearSessionCookie({ secure: secureCookie }) },
+        );
+      }
+
+      const { sid, role, body, host } = await requireMutation(req);
+      denyAuthPath(role, url.pathname);
+      const challengeSid = authEnabled ? hashSessionToken(sid) : sid;
       if (url.pathname === "/api/demo/orders") {
         return json(200, { order: await createDemoOrder(body) });
       }
@@ -444,14 +626,14 @@ export function createApp(opts: {
         case "/api/partner/wallet/challenge": {
           const address = parseAddress(body.address);
           const issued = issueChallenge({
-            domain: originFromHost(requireHost(req)),
+            domain: challengeDomain(host),
             userId: opts.config.partnerId,
             address,
             chainId: opts.config.chain.chainId,
             now: now(),
           });
           opts.store.putChallenge({
-            sessionId: sid,
+            sessionId: challengeSid,
             address,
             nonce: issued.nonce,
             message: issued.message,
@@ -462,7 +644,7 @@ export function createApp(opts: {
         }
         case "/api/partner/wallet/verify": {
           const address = parseAddress(body.address);
-          const challenge = opts.store.getChallenge(sid);
+          const challenge = opts.store.getChallenge(challengeSid);
           if (!challenge) throw new ServiceError(400, "请先获取验证信息。");
           if (challenge.consumed)
             throw new ServiceError(409, "验证信息已使用，请重新发起。");
@@ -478,7 +660,7 @@ export function createApp(opts: {
           if (recovered.toLowerCase() !== address.toLowerCase()) {
             throw new ServiceError(400, "签名无效。");
           }
-          opts.store.consumeChallenge(sid);
+          opts.store.consumeChallenge(challengeSid);
           opts.store.setWallet(recovered);
           return json(200, { ok: true });
         }

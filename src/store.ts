@@ -12,6 +12,7 @@ import {
 } from "./money.ts";
 import {
   type Address,
+  type AuthRole,
   type Hex,
   type PartnerRecord,
   type PayoutRecord,
@@ -139,6 +140,14 @@ export function createStore(opts: {
       id TEXT PRIMARY KEY,
       created_at INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS auth_sessions (
+      token_hash TEXT PRIMARY KEY,
+      role TEXT NOT NULL CHECK (role IN ('merchant', 'promoter')),
+      credential_fingerprint TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS auth_sessions_expires ON auth_sessions(expires_at);
     CREATE TABLE IF NOT EXISTS challenges (
       session_id TEXT PRIMARY KEY,
       address TEXT NOT NULL,
@@ -178,6 +187,37 @@ export function createStore(opts: {
   }
 
   const tx = <T>(fn: () => T): T => db.transaction(fn)();
+
+  const purgeExpiredAuthSessions = () => {
+    db.run(`DELETE FROM auth_sessions WHERE expires_at <= ?`, [now()]);
+  };
+
+  const getAuthSession = (tokenHash: string) => {
+    purgeExpiredAuthSessions();
+    const row = db
+      .query(
+        `SELECT token_hash, role, credential_fingerprint, created_at, expires_at
+         FROM auth_sessions WHERE token_hash = ?`,
+      )
+      .get(tokenHash) as Record<string, unknown> | null;
+    if (!row) return null;
+    if (Number(row.expires_at) <= now()) {
+      db.run(`DELETE FROM auth_sessions WHERE token_hash = ?`, [tokenHash]);
+      return null;
+    }
+    const role = String(row.role);
+    if (role !== "merchant" && role !== "promoter") {
+      db.run(`DELETE FROM auth_sessions WHERE token_hash = ?`, [tokenHash]);
+      return null;
+    }
+    return {
+      tokenHash: String(row.token_hash),
+      role: role as AuthRole,
+      credentialFingerprint: String(row.credential_fingerprint),
+      createdAt: Number(row.created_at),
+      expiresAt: Number(row.expires_at),
+    };
+  };
 
   const getPartner = (): PartnerRecord => {
     const row = db
@@ -608,6 +648,30 @@ export function createStore(opts: {
     hasSession(id: string): boolean {
       return !!db.query(`SELECT id FROM sessions WHERE id = ?`).get(id);
     },
+    createAuthSession(row: {
+      tokenHash: string;
+      role: AuthRole;
+      credentialFingerprint: string;
+      expiresAt: number;
+    }) {
+      purgeExpiredAuthSessions();
+      db.run(
+        `INSERT INTO auth_sessions (token_hash, role, credential_fingerprint, created_at, expires_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        [
+          row.tokenHash,
+          row.role,
+          row.credentialFingerprint,
+          now(),
+          row.expiresAt,
+        ],
+      );
+    },
+    getAuthSession,
+    deleteAuthSession(tokenHash: string) {
+      db.run(`DELETE FROM auth_sessions WHERE token_hash = ?`, [tokenHash]);
+    },
+    purgeExpiredAuthSessions,
     putChallenge(row: {
       sessionId: string;
       address: Address;

@@ -20,6 +20,7 @@ export interface Chain {
 }
 
 export type SourceKind = 'fixture' | 'beefapi';
+export type AuthRole = 'merchant' | 'promoter';
 
 export type SourceOrderStatus = 'pending' | 'paid';
 
@@ -164,6 +165,8 @@ export type AppState = {
   orderDemo: boolean;
   orders?: PublicOrder[];
   sourceError?: string;
+  authEnabled?: boolean;
+  role?: AuthRole;
 };
 
 export class ServiceError extends Error {

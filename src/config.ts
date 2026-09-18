@@ -6,6 +6,9 @@ import { DEFAULT_MIN_AMOUNT } from './money.ts';
 import type { Address, Hex, SourceKind } from './types.ts';
 import { ServiceError } from './types.ts';
 
+export const AUTH_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+export const AUTH_COOKIE_MAX_AGE_SEC = 8 * 60 * 60;
+
 export const CIRCLE_FUJI_USDC =
   '0x5425890298aed601595a70AB815c96711a31Bc65' as Address;
 export const MERCHANT_ID = 'demo-merchant';
@@ -44,6 +47,10 @@ export type RuntimeConfig = {
   partnerId: string;
   partnerName: string;
   orderDemo: boolean;
+  authEnabled: boolean;
+  publicOrigin: string | null;
+  merchantPasswordHash: string;
+  promoterPasswordHash: string;
 };
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1']);
@@ -147,6 +154,51 @@ function intEnv(value: string | undefined, fallback: number, label: string): num
   return Number(value);
 }
 
+function flagEnv(value: string | undefined, label: string): boolean {
+  if (value == null || value === '') return false;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  throw new Error(`${label} 只允许 true 或 false。`);
+}
+
+export function assertSupportedPasswordHash(value: unknown, label: string): string {
+  if (typeof value !== 'string' || value.length < 30 || value.length > 512) {
+    throw new Error(`${label} 必须是受支持的密码哈希。`);
+  }
+  const argon =
+    /^\$argon2(id|i|d)\$v=\d+\$m=\d+,t=\d+,p=\d+\$[A-Za-z0-9+/]+\$[A-Za-z0-9+/]+$/;
+  const bcrypt = /^\$2[abxy]\$\d{2}\$[A-Za-z0-9./]{53}$/;
+  if (!argon.test(value) && !bcrypt.test(value)) {
+    throw new Error(`${label} 必须是受支持的密码哈希。`);
+  }
+  return value;
+}
+
+export function parsePublicOrigin(value: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error('SETTLEMENT_PUBLIC_ORIGIN 必须是不含路径的 HTTPS 来源。');
+  }
+  if (url.protocol !== 'https:') {
+    throw new Error('SETTLEMENT_PUBLIC_ORIGIN 必须是不含路径的 HTTPS 来源。');
+  }
+  if (url.username || url.password) {
+    throw new Error('SETTLEMENT_PUBLIC_ORIGIN 必须是不含路径的 HTTPS 来源。');
+  }
+  if (url.search || url.hash) {
+    throw new Error('SETTLEMENT_PUBLIC_ORIGIN 必须是不含路径的 HTTPS 来源。');
+  }
+  if (url.pathname !== '/' && url.pathname !== '') {
+    throw new Error('SETTLEMENT_PUBLIC_ORIGIN 必须是不含路径的 HTTPS 来源。');
+  }
+  if (value !== url.origin) {
+    throw new Error('SETTLEMENT_PUBLIC_ORIGIN 必须是不含路径的 HTTPS 来源。');
+  }
+  return url.origin;
+}
+
 export function runtimeConfig(
   partial: Partial<RuntimeConfig> & { chain: ChainConfig },
 ): RuntimeConfig {
@@ -158,8 +210,40 @@ export function runtimeConfig(
   }
   const source = partial.source ?? 'fixture';
   const orderDemo = partial.orderDemo ?? false;
-  if (orderDemo && (source !== 'beefapi' || (partial.partnerUserId ?? 1) !== 1)) {
+  const partnerUserId = partial.partnerUserId ?? 1;
+  const authEnabled = partial.authEnabled ?? false;
+  const publicOrigin = partial.publicOrigin ?? null;
+  let merchantPasswordHash = partial.merchantPasswordHash ?? '';
+  let promoterPasswordHash = partial.promoterPasswordHash ?? '';
+  if (orderDemo && (source !== 'beefapi' || partnerUserId !== 1)) {
     throw new Error('测试订单演示只适用于 beefapi 来源。');
+  }
+  if (authEnabled) {
+    merchantPasswordHash = assertSupportedPasswordHash(
+      merchantPasswordHash,
+      'SETTLEMENT_MERCHANT_PASSWORD_HASH',
+    );
+    promoterPasswordHash = assertSupportedPasswordHash(
+      promoterPasswordHash,
+      'SETTLEMENT_PROMOTER_PASSWORD_HASH',
+    );
+    if (merchantPasswordHash === promoterPasswordHash) {
+      throw new Error('商家与推广者必须使用不同的凭据。');
+    }
+    if (partnerUserId !== 1) {
+      throw new Error('认证演示只支持一个固定推广者。');
+    }
+  } else if (publicOrigin) {
+    throw new Error('SETTLEMENT_PUBLIC_ORIGIN 需要开启认证。');
+  }
+  if (publicOrigin) {
+    parsePublicOrigin(publicOrigin);
+    if (chainId !== 43113) {
+      throw new Error('公开来源只允许 Fuji 测试网。');
+    }
+    if (source !== 'beefapi' || !orderDemo) {
+      throw new Error('公开来源需要订单演示。');
+    }
   }
   return {
     host,
@@ -178,7 +262,7 @@ export function runtimeConfig(
     orderDemo,
     beefapiBaseUrl: partial.beefapiBaseUrl ?? '',
     beefapiToken: partial.beefapiToken ?? '',
-    partnerUserId: partial.partnerUserId ?? 1,
+    partnerUserId,
     minAmount: partial.minAmount ?? DEFAULT_MIN_AMOUNT,
     maturityMs: partial.maturityMs ?? DEFAULT_MATURITY_MS,
     tickMs: partial.tickMs ?? DEFAULT_TICK_MS,
@@ -188,6 +272,10 @@ export function runtimeConfig(
     merchantId: partial.merchantId ?? MERCHANT_ID,
     partnerId: partial.partnerId ?? PARTNER_ID,
     partnerName: partial.partnerName ?? PARTNER_NAME,
+    authEnabled,
+    publicOrigin,
+    merchantPasswordHash,
+    promoterPasswordHash,
   };
 }
 
@@ -291,6 +379,13 @@ export function loadConfig(opts?: {
     lockPath: resolve(cwd, env.SETTLEMENT_LOCK ?? join('.local', 'settlement.lock')),
     publicDir,
     orderDemo,
+    authEnabled: flagEnv(env.SETTLEMENT_AUTH_ENABLED, 'SETTLEMENT_AUTH_ENABLED'),
+    publicOrigin:
+      env.SETTLEMENT_PUBLIC_ORIGIN && env.SETTLEMENT_PUBLIC_ORIGIN !== ''
+        ? parsePublicOrigin(env.SETTLEMENT_PUBLIC_ORIGIN)
+        : null,
+    merchantPasswordHash: env.SETTLEMENT_MERCHANT_PASSWORD_HASH ?? '',
+    promoterPasswordHash: env.SETTLEMENT_PROMOTER_PASSWORD_HASH ?? '',
   });
 
   if (cfg.source === 'beefapi') {

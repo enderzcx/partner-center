@@ -14,6 +14,9 @@ let state = null,
   fetching = false,
   selectedReceipt = null;
 let ledgerSignature = null;
+let auth = { enabled: false, authenticated: false, role: null };
+let loginBusy = false;
+$("app-shell").hidden = true;
 const escapeHTML = (v) =>
   String(v ?? "").replace(
     /[&<>"']/g,
@@ -153,6 +156,41 @@ function viewCopy() {
     ? "查看可用收益和出款进度。"
     : "查看收益和到账记录。";
 }
+function showLogin(message) {
+  auth.authenticated = false;
+  auth.role = null;
+  state = null;
+  ledgerSignature = null;
+  $("login-shell").hidden = false;
+  $("app-shell").hidden = true;
+  $("account-bar").hidden = true;
+  document.querySelector(".skip").setAttribute("href", "#login-username");
+  const err = $("login-error");
+  err.textContent = message || "";
+  $("login-password").value = "";
+}
+function showApp() {
+  $("login-shell").hidden = true;
+  $("app-shell").hidden = false;
+  document.querySelector(".skip").setAttribute("href", "#main");
+  applyAuthChrome();
+}
+function applyAuthChrome() {
+  const authOn = !!auth.enabled;
+  document.querySelectorAll("[data-role]").forEach((button) => {
+    if (!authOn) {
+      button.hidden = false;
+      button.disabled = false;
+      return;
+    }
+    const match = button.dataset.role === role;
+    button.hidden = !match;
+    button.disabled = true;
+    button.classList.toggle("selected", match);
+    button.setAttribute("aria-pressed", String(match));
+  });
+  $("account-bar").hidden = !authOn;
+}
 async function api(path, data) {
   const response = await fetch(path, {
     method: data === undefined ? "GET" : "POST",
@@ -166,6 +204,18 @@ async function api(path, data) {
   } catch {
     throw new Error("服务没有返回有效结果，请重试。");
   }
+  if (response.status === 401 && auth.enabled && path !== "/api/auth/login") {
+    showLogin(
+      typeof result.error === "string" && result.error
+        ? result.error
+        : "登录已过期，请重新登录。",
+    );
+    throw new Error(
+      typeof result.error === "string"
+        ? result.error
+        : "登录已过期，请重新登录。",
+    );
+  }
   if (!response.ok)
     throw new Error(
       typeof result.error === "string"
@@ -177,7 +227,7 @@ async function api(path, data) {
 function lock(value) {
   busy = value;
   document
-    .querySelectorAll("main button, main input")
+    .querySelectorAll("#app-shell main button, #app-shell main input")
     .forEach((el) => (el.disabled = value || !state));
   $("refresh").disabled = value;
   if (!value && state) renderControls();
@@ -402,12 +452,19 @@ function render() {
 }
 async function refresh() {
   if (fetching) return;
+  if (auth.enabled && !auth.authenticated) return;
   fetching = true;
   try {
     state = await api("/api/state");
+    if (state && (state.role === "merchant" || state.role === "promoter")) {
+      role = state.role;
+      auth.role = state.role;
+      applyAuthChrome();
+    }
     render();
     if (!busy) lock(false);
   } catch (error) {
+    if (auth.enabled && !auth.authenticated) throw error;
     notice("同步失败：" + error.message, true);
     $("sync-time").textContent = state ? "数据未更新，请重试" : "尚未连接";
     if (!state)
@@ -465,6 +522,7 @@ function renderReceipt(id) {
 }
 document.querySelectorAll("[data-role]").forEach((button) =>
   button.addEventListener("click", () => {
+    if (auth.enabled) return;
     role = button.dataset.role;
     document.querySelectorAll("[data-role]").forEach((b) => {
       b.classList.toggle("selected", b === button);
@@ -585,7 +643,73 @@ $("ledger-content").addEventListener("click", (event) => {
 });
 $("close-receipt").addEventListener("click", () => $("receipt").close());
 $("receipt").addEventListener("close", () => (selectedReceipt = null));
-refresh().catch(() => {});
+$("login-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (loginBusy) return;
+  const errorBox = $("login-error");
+  const username = $("login-username").value.trim();
+  const password = $("login-password").value;
+  if (!username || !password) {
+    errorBox.textContent = "请填写账号和密码。";
+    return;
+  }
+  loginBusy = true;
+  $("login-submit").disabled = true;
+  errorBox.textContent = "";
+  try {
+    const result = await api("/api/auth/login", { username, password });
+    auth.enabled = true;
+    auth.authenticated = true;
+    auth.role = result.role;
+    role = result.role;
+    $("login-password").value = "";
+    showApp();
+    await refresh();
+  } catch (error) {
+    errorBox.textContent = error.message || "账号或密码不正确。";
+    $("login-password").value = "";
+    $("login-password").focus();
+  } finally {
+    loginBusy = false;
+    $("login-submit").disabled = false;
+  }
+});
+$("logout").addEventListener("click", async () => {
+  if (busy || loginBusy) return;
+  loginBusy = true;
+  $("logout").disabled = true;
+  try {
+    await api("/api/auth/logout", {});
+    showLogin();
+  } catch (error) {
+    notice(error.message, true);
+  } finally {
+    loginBusy = false;
+    $("logout").disabled = false;
+  }
+});
+async function bootstrap() {
+  try {
+    const session = await api("/api/auth/session");
+    auth.enabled = !!session.authEnabled;
+    auth.authenticated = !!session.authenticated;
+    auth.role = session.role;
+    if (auth.enabled && !auth.authenticated) {
+      showLogin();
+      return;
+    }
+    if (auth.enabled && (session.role === "merchant" || session.role === "promoter")) {
+      role = session.role;
+    }
+    showApp();
+    await refresh();
+  } catch (error) {
+    if (auth.enabled) showLogin(error.message);
+    else notice("同步失败：" + error.message, true);
+  }
+}
+bootstrap().catch(() => {});
 setInterval(() => {
-  if (!busy && !document.hidden) refresh().catch(() => {});
+  if (!busy && !document.hidden && (!auth.enabled || auth.authenticated))
+    refresh().catch(() => {});
 }, 3000);
