@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { startFromEnv } from '../src/server.ts';
+import { acquireProcessLock, type ProcessLock } from '../src/lock.ts';
 
 // Local orchestration only. The source is a dedicated demo SQLite database.
 // --fuji is an explicit operator action, never a default or fallback.
@@ -12,13 +13,18 @@ mkdirSync(folder, { recursive: true, mode: 0o700 });
 let child: ReturnType<typeof Bun.spawn> | undefined;
 let runtime: Awaited<ReturnType<typeof startFromEnv>> | undefined;
 let stopping: Promise<void> | undefined;
+let launcherLock: ProcessLock | undefined;
 async function stop() {
   return stopping ??= (async () => {
     if (runtime) await runtime.shutdown();
     if (child) { child.kill('SIGTERM'); await child.exited; }
+    launcherLock?.release();
   })();
 }
+  for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => { void stop().then(() => process.exit(0)); });
 try {
+  launcherLock = acquireProcessLock(resolve(folder, 'launcher.lock'));
+  if (existsSync(resolve(folder, 'source.sqlite')) !== existsSync(resolve(folder, 'settlement.sqlite'))) throw new Error('Restore the matching source and settlement databases before restarting.');
   const binary = process.env.BEEFAPI_FIXTURE_BINARY ?? resolve(root, '.local/beefapi-fixture.test');
   if (!existsSync(binary)) throw new Error('Compile the isolated BeefAPI fixture binary first.');
   const authPath = resolve(folder, 'source-token');
@@ -41,7 +47,7 @@ try {
   } else key = local.privateKey;
   const sourcePort = fuji ? 18784 : 18783;
   const appPort = fuji ? 4315 : 4314;
-  child = Bun.spawn([binary, '-test.run', '^TestSettlementHTTPFixture$', '-test.timeout', '24h'], {
+  child = Bun.spawn([binary, '-test.run', '^TestSettlementHTTPFixture$', '-test.timeout', '25h'], {
     cwd: root,
     env: {
       PATH: process.env.PATH!, HOME: process.env.HOME!,
@@ -72,7 +78,6 @@ try {
     SETTLEMENT_PORT: String(appPort), SETTLEMENT_TICK_MS: '2000',
   }, { handleSignals: false });
   console.log(`Order demo ready: http://127.0.0.1:${appPort} (${fuji ? 'Fuji testnet' : 'local chain'}; synthetic payment confirmation)`);
-  for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => { void stop().then(() => process.exit(0)); });
   // A dead source must not leave an apparently working demo behind.
   void child.exited.then(async () => { if (!stopping) { console.error('Demo source stopped; stopping settlement service.'); await stop(); process.exitCode = 1; } });
 } catch {
