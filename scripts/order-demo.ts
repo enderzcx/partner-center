@@ -70,7 +70,7 @@ try {
     BEEFAPI_TEST_BASE_URL: sourceURL, SETTLEMENT_TEST_TOKEN: auth, SETTLEMENT_PARTNER_USER_ID: '1',
     SETTLEMENT_DB: resolve(folder, 'settlement.sqlite'), SETTLEMENT_LOCK: resolve(folder, 'settlement.lock'),
     SETTLEMENT_PORT: String(appPort), SETTLEMENT_TICK_MS: '2000',
-  });
+  }, { handleSignals: false });
   console.log(`Order demo ready: http://127.0.0.1:${appPort} (${fuji ? 'Fuji testnet' : 'local chain'}; synthetic payment confirmation)`);
   for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => { void stop().then(() => process.exit(0)); });
   // A dead source must not leave an apparently working demo behind.

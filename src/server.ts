@@ -379,7 +379,7 @@ export function createApp(opts: {
   };
 }
 
-export async function startFromEnv(env = process.env) {
+export async function startFromEnv(env = process.env, options: { handleSignals?: boolean } = {}) {
   const config = loadConfig({ env });
   assertLoopbackBind(config.host);
   const lock = acquireProcessLock(config.lockPath);
@@ -418,12 +418,14 @@ export async function startFromEnv(env = process.env) {
         store?.close();
         lock.release();
       })());
-    process.on("SIGINT", () => {
-      void shutdown().then(() => process.exit(0));
-    });
-    process.on("SIGTERM", () => {
-      void shutdown().then(() => process.exit(0));
-    });
+    if (options.handleSignals !== false) {
+      process.on("SIGINT", () => {
+        void shutdown().then(() => process.exit(0));
+      });
+      process.on("SIGTERM", () => {
+        void shutdown().then(() => process.exit(0));
+      });
+    }
     return { app, server, lock, shutdown };
   } catch (err) {
     try {
