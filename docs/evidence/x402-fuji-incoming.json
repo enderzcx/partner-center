@@ -1,0 +1,13 @@
+{
+  "network": "Avalanche Fuji",
+  "chainId": 43113,
+  "payer": "0x28172e0d973fFf24651B6Ed4cA6d1007bc168C94",
+  "payTo": "0x5c905e43e0BB381534530d5e05DF56ab1f420899",
+  "amountUSDC": "10",
+  "verification": {
+    "ok": true,
+    "txHash": "0xd0df9f773a5d033e4ee0475a47cf48f54c653b778077662555e6c531d45104c6",
+    "blockNumber": "58462165"
+  },
+  "checkedAt": "2026-09-18T12:36:49.449Z"
+}

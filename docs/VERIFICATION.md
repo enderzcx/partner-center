@@ -140,3 +140,17 @@ Ender 明确授权后，真实部署 Settlement、充值 1 测试 USDC，使用�
 实际浏览器商家登录后读回付款按钮“支付 10 测试 USDC”、累计到账2.00、结算资金19.00；未请求真实钱包签名。证据 `evidence/x402-public-qa.json`、`evidence/x402-public-browser.json`、`evidence/x402-release.json`。不能把这些报价/权限检查称为已经完成真实Fuji x402收款。
 
 Grok两个开发工作树已删除，作者分支保留，回执归档到本任务 `.local/worker-receipts/`。代码仅本地提交，没有推送远端。集成工作树暂保留用于后续真实付款验收；本地EVM/来源进程已停止，Ego TaskSpace243已结束。剩余唯一实测前置是Ender选择付款钱包：授权现有0x2817…8C94支付一次10测试USDC并返佣1，或由本人在页面签名。未收到选择，不代签买家付款。
+
+
+### x402 公网真实 Fuji 收款与自动返佣完成 · 2026-09-18
+
+本节取代上文“待签名/待付款”状态。Ender 明确授权 Chrome/CUA 全程操作；使用已连接 MetaMask 的 fundamental_agent（0x28172e0d973fFf24651B6Ed4cA6d1007bc168C94）对现有唯一订单 fuji-x402-20260918-001 签署一次 10 测试 USDC 授权。订单锁定10%，自动返佣1测试USDC到原绑定地址。
+
+- 收款交易：`0xd0df9f773a5d033e4ee0475a47cf48f54c653b778077662555e6c531d45104c6`。
+- 返佣交易：`0x6f9843b7c2d14211c07ef6d539a625cd4c8b1c962426b49ada6b15ac8fdea23d`。
+- 独立 RPC 核对两笔 success/finalized、原授权 nonce、USDC 转账金额及地址、Paid 事件、合约 paid 标记全部通过。来源订单 paid、payment completed、pending=0、累计 paid=3000000、结算记录3笔；付款人8、合约28、收款人4测试USDC。收款人余额含历史独立测试款，不等于当前来源累计3。
+- PayAI 实际经 Multicall3 提交，旧 receipt.to==token 检查错误拒绝已到账付款。修复为同一官方 USDC 合约紧邻的 AuthorizationUsed(payer,nonce) 与 Transfer(payer,treasury,amount) 精确配对，拒绝批内拼接其他付款日志。恢复原已持久化授权，无第二次签名或重复10USDC扣款。
+- 修复提交 c0e9b6a；typecheck通过，114 tests / 0 fail / 851 assertions。Grok 独立审查 20260918-203607-review-38de194a 为 approve。当前镜像 partner-demo:x402-v4，摘要 sha256:ae0cfb49f9e96c48fbb0e14668acfbfc16a099c18cbfdfa94c39f5e49d634e11，完成后服务 running/healthy。
+- 升级前成对账本备份保留于 /home/ubuntu/partner-demo/backups/pre-multicall-fix-20260918。不可恢复到收款前账本而丢失这笔链上付款。
+- Chrome 原生 CUA 回执读回“已完成”、1.00 USDC、正确收款人和两笔完整哈希；最终截图人工核对通过，私有截图保留 .local/x402-complete-chrome.png。浏览器 CDP 因 consent 拒绝，未绕过授权，改用原生 AX；必要导航使用已授权前台输入。未创建新 Chrome 窗口、未保存密码、未开启录屏；关闭钱包侧栏，保留原窗口的完成回执。
+- 完整公开链上与账本证据：[x402 Fuji 完成凭证](evidence/x402-fuji-complete-2026-09-18.json)。这是受控测试订单的真实测试币收款和返佣闭环，不包含主网资金、生产订单或真实 AI 调用计费接入。代码仍只在本地提交，未推送远端。

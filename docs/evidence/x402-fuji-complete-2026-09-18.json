@@ -1,0 +1,65 @@
+{
+  "result": "PASS",
+  "checkedAt": "2026-09-18T12:44:26.864Z",
+  "origin": "https://partner.bflabs.app",
+  "network": "Avalanche Fuji",
+  "chainId": 43113,
+  "authorization": "Ender authorized full Chrome CUA payment; one10testUSDC order and1testUSDC commission",
+  "uiTransport": "cua-driver CLI native accessibility, Chrome PID1334 window5703, MetaMask fundamental_agent",
+  "order": {
+    "requestId": "fuji-x402-20260918-001",
+    "tradeNo": "global_3f094be04a23425b99b1c0c966ee15f4",
+    "paymentAmountMinor": "1000",
+    "commissionRate": "0.1",
+    "commissionUsdc": "1000000",
+    "status": "paid",
+    "recipient": "0x831C5C93a221D8508ad4808C2A64D58B15f77c85",
+    "error": null,
+    "payment": {
+      "mode": "x402",
+      "status": "completed",
+      "txHash": "0xd0df9f773a5d033e4ee0475a47cf48f54c653b778077662555e6c531d45104c6",
+      "error": null
+    }
+  },
+  "payout": {
+    "id": "0x373ed31e47f15aed0bc2fb0713932483c7ec21158dd64e4718bc1181da6d8ce3",
+    "sourceId": "beefapi:order-fuji-x402-20260918-001:3",
+    "recipient": "0x831C5C93a221D8508ad4808C2A64D58B15f77c85",
+    "amount": "1000000",
+    "status": "completed",
+    "txHash": "0x6f9843b7c2d14211c07ef6d539a625cd4c8b1c962426b49ada6b15ac8fdea23d",
+    "error": null,
+    "createdAt": 1789735333000
+  },
+  "incoming": {
+    "ok": true,
+    "txHash": "0xd0df9f773a5d033e4ee0475a47cf48f54c653b778077662555e6c531d45104c6",
+    "blockNumber": "58462165"
+  },
+  "outgoing": {
+    "transactionHash": "0x6f9843b7c2d14211c07ef6d539a625cd4c8b1c962426b49ada6b15ac8fdea23d",
+    "blockNumber": "58462427",
+    "status": "success",
+    "finalizedBlock": "58462478"
+  },
+  "balancesUSDC": {
+    "payer": "8",
+    "treasury": "28",
+    "recipient": "4"
+  },
+  "sourceBalances": {
+    "id": "demo-partner",
+    "name": "演示推广者",
+    "wallet": "0x831C5C93a221D8508ad4808C2A64D58B15f77c85",
+    "autoSettle": false,
+    "available": "0",
+    "pending": "0",
+    "paid": "3000000",
+    "consumed": ""
+  },
+  "payoutCount": 3,
+  "newIncomingPayments": 1,
+  "newCommissionPayments": 1,
+  "recovery": "same pinned authorization resumed after Multicall receipt verification fix; no second signature or10USDC payment"
+}
