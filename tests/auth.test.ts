@@ -646,6 +646,8 @@ test("role permission matrix and promoter state projection", async () => {
     body: JSON.stringify({ address: account.address }),
   });
   expect(challenge.status).toBe(200);
+  expect(store.getChallenge(hashSessionToken(p!))).not.toBeNull();
+  expect(store.getChallenge(p!)).toBeNull();
   const { message } = (await challenge.json()) as { message: string };
   expect(message).toContain("Domain: http://127.0.0.1:4311");
   const signature = await account.signMessage({ message });
@@ -679,7 +681,7 @@ test("role permission matrix and promoter state projection", async () => {
   expect(promoterState.wallet.gas).toBe("");
   expect(promoterState.wallet.token).not.toBe("0");
   expect(promoterState.orders).toBeUndefined();
-  expect(promoterState.paused).toBe(false);
+  expect(promoterState.paused).toBe(true);
   expect(promoterState.sourceError).toBeUndefined();
   expect(promoterState.partner.available).toBe("1000000");
   expect(promoterState.wallet).toEqual({ token: "", gas: "" });
@@ -772,4 +774,14 @@ test("bounded login limiter does not distinguish unknown accounts", async () => 
   const unknownLocked = await login(app, "nobody", "wrong");
   expect(unknownLocked.res.status).toBe(401);
   expect(unknownLocked.body.error).toBe(LOGIN_FAILED);
+});
+
+
+test("parallel password checks are bounded and unknown mutations deny by default", async () => {
+  const {app} = harness();
+  const batch = await Promise.all(Array.from({length:12},()=>login(app,"merchant",MERCHANT_PASSWORD)));
+  expect(batch.filter(x=>x.res.status===429).length).toBeGreaterThan(0);
+  expect(batch.filter(x=>x.res.status===200).length).toBeLessThanOrEqual(4);
+  const valid = batch.find(x=>x.sid)!;
+  expect((await req(app,"/api/future-mutation",{sid:valid.sid,method:"POST",body:"{}"})).status).toBe(403);
 });

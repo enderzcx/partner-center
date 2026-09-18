@@ -198,6 +198,7 @@ export function createApp(opts: {
   const publicOrigin = opts.config.publicOrigin;
   const secureCookie = !!publicOrigin;
   const loginLimiter = createLoginLimiter({ now });
+  let activePasswordChecks = 0;
   const orderLocks = new Map<string, Promise<unknown>>();
   const AUTH_DISABLED = new Set([
     "/api/demo/commission",
@@ -301,10 +302,7 @@ export function createApp(opts: {
     const promoterPath =
       pathname === "/api/partner/wallet/challenge" ||
       pathname === "/api/partner/wallet/verify";
-    if (role === "promoter" && merchantPath) {
-      throw new ServiceError(403, "当前账号不能执行该操作。");
-    }
-    if (role === "merchant" && promoterPath) {
+    if (!((role === "merchant" && merchantPath) || (role === "promoter" && promoterPath))) {
       throw new ServiceError(403, "当前账号不能执行该操作。");
     }
   };
@@ -450,10 +448,10 @@ export function createApp(opts: {
     const visibleError = promoterView ? undefined : sourceError ?? orderError;
     const body: AppState = {
       network: networkMeta(opts.config.chain.chainId, opts.config.chain.token, {
-        configured: promoterView ? configured : configured,
+        configured,
         error: promoterView ? undefined : networkError,
       }),
-      paused: promoterView ? false : opts.store.isPaused(),
+      paused: opts.store.isPaused(),
       wallet: promoterView ? { token: "", gas: "" } : wallet,
       partner: promoterView ? { ...partner, autoSettle: false } : partner,
       payouts: opts.store.publicPayouts(),
@@ -564,13 +562,18 @@ export function createApp(opts: {
         if (!username || !password) {
           throw new ServiceError(400, "请填写账号和密码。");
         }
-        const blocked = loginLimiter.blocked(username);
-        const role = await verifyLoginPassword(username, password, {
-          merchant: opts.config.merchantPasswordHash,
-          promoter: opts.config.promoterPasswordHash,
-        });
-        if (blocked || !role) {
-          if (!blocked) loginLimiter.fail(username);
+        if (loginLimiter.blocked(username)) throw new ServiceError(401, LOGIN_FAILED);
+        if (activePasswordChecks >= 4) throw new ServiceError(429, "登录请求过多，请稍后再试。");
+        activePasswordChecks += 1;
+        let role: AuthRole | null;
+        try {
+          role = await verifyLoginPassword(username, password, {
+            merchant: opts.config.merchantPasswordHash,
+            promoter: opts.config.promoterPasswordHash,
+          });
+        } finally { activePasswordChecks -= 1; }
+        if (!role) {
+          loginLimiter.fail(username);
           throw new ServiceError(401, LOGIN_FAILED);
         }
         loginLimiter.succeed(role);

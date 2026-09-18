@@ -74,7 +74,7 @@ export function publicHostAllowed(
   const host = hostHeader.trim().toLowerCase();
   const hostname = url.hostname.toLowerCase();
   const expectedPort = url.port || '443';
-  return host === hostname || host === `${hostname}:${expectedPort}`;
+  return host === `${hostname}:${expectedPort}` || (expectedPort === '443' && host === hostname);
 }
 
 export function allowedHost(
