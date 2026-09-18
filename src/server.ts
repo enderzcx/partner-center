@@ -52,6 +52,14 @@ const STATIC_FILES: Record<string, { file: string; type: string }> = {
   "/index.html": { file: "index.html", type: "text/html; charset=utf-8" },
   "/app.js": { file: "app.js", type: "text/javascript; charset=utf-8" },
   "/style.css": { file: "style.css", type: "text/css; charset=utf-8" },
+  "/fonts/schibsted-latin.woff2": {
+    file: "fonts/schibsted-latin.woff2",
+    type: "font/woff2",
+  },
+  "/fonts/geist-mono-latin.woff2": {
+    file: "fonts/geist-mono-latin.woff2",
+    type: "font/woff2",
+  },
 };
 
 export type SettlementApp = {
