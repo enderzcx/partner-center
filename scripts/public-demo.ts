@@ -30,6 +30,7 @@ try {
   if (!/^0x[0-9a-fA-F]{64}$/.test(secrets.privateKey) || !/^[0-9a-f]{64}$/.test(secrets.sourceToken)) throw Error('Invalid secrets');
   if (typeof secrets.merchantPasswordHash !== 'string' || typeof secrets.promoterPasswordHash !== 'string') throw Error('Missing account hashes');
   const binary = process.env.PARTNER_SOURCE_BINARY ?? '/usr/local/bin/settlement-demo-source';
+  const sourceURL = `http://127.0.0.1:${sourcePort}`;
   const runtimeEnv = {
     SETTLEMENT_CHAIN_ID:'43113', SETTLEMENT_RPC_URL:'https://api.avax-test.network/ext/bc/C/rpc',
     SETTLEMENT_CONTRACT:'0x5c905e43e0BB381534530d5e05DF56ab1f420899',
@@ -56,7 +57,6 @@ try {
     },
     stdout: 'ignore', stderr: 'ignore',
   });
-  const sourceURL = `http://127.0.0.1:${sourcePort}`;
   let ready = false;
   for (let i=0;i<60;i++) {
     try {
