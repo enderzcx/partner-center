@@ -1,0 +1,45 @@
+{
+  "result": "PASS",
+  "network": "Avalanche Fuji",
+  "chainId": 43113,
+  "contract": "0x5c905e43e0BB381534530d5e05DF56ab1f420899",
+  "deploymentHash": "0x391cac0d37514a1dc39a2e8024d5d535990c2f4db7ceb872fe458fb838103edc",
+  "fundingHash": "0x7de96f8cc0bae46cdb09fd204ab6ac84df887019faba65aebed9252705f0a7aa",
+  "payoutHash": "0x044edb579f6caf3bf540d92f75cdd1c92fdefc65faa7d865673d27ec96ec3a35",
+  "payoutId": "0xea8a8c878be1b4ee6dbda1d0ab0a9711fbf017f0dfa61126fcc9398ff86a4a9f",
+  "recipient": "0x831C5C93a221D8508ad4808C2A64D58B15f77c85",
+  "amountUSDC": "1",
+  "recipientBefore": "0",
+  "recipientAfter": "1",
+  "source": "BeefAPI isolated test database",
+  "sourceBalances": {
+    "available_usdc": "99000000",
+    "commission_rate": "0.1",
+    "commission_rate_source": "default",
+    "paid_usdc": "1000000",
+    "pending_usdc": "0"
+  },
+  "sourceReservation": {
+    "id": 1,
+    "request_id": "fuji-acceptance-20260918-001",
+    "user_id": 1,
+    "recipient": "0x831c5c93a221d8508ad4808c2a64d58b15f77c85",
+    "amount_usdc": "1000000",
+    "quota": 500000,
+    "status": "completed",
+    "chain_id": 43113,
+    "token": "0x5425890298aed601595a70ab815c96711a31bc65",
+    "transaction_hash": "0x044edb579f6caf3bf540d92f75cdd1c92fdefc65faa7d865673d27ec96ec3a35",
+    "withdrawal_id": 1,
+    "created_at": 1789713672,
+    "updated_at": 1789713690
+  },
+  "duplicatePayment": false,
+  "readback": {
+    "status": "success",
+    "block": "58456762",
+    "finalizedBlock": "58456772",
+    "paid": true,
+    "recipientMicroUSDC": "1000000"
+  }
+}

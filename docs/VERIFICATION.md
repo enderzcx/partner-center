@@ -55,3 +55,9 @@ Grok 临时工作树已移除，原作者分支保留作为本地审阅引用，
 - 演示页面 1440/390/320px 已验收，比例显示 10% 并标注演示规则，无横向溢出。截图在 `.local/commission-*.png`。
 - Fuji 只读预检：chain 43113，出款公开地址 `0x28172e0d973fFf24651B6Ed4cA6d1007bc168C94`，用户指定收款地址 `0x831C5C93a221D8508ad4808C2A64D58B15f77c85`。测试 AVAX/USDC 均为零；Settlement 部署估算 646680 gas（仅当次估值）。无签名广播、部署或转账。私钥未打印、复制、提交或交给 Grok。公开预检记录在 `.local/fuji-preflight.json`。
 - Go → 独立服务 `/api/state` → 浏览器联调通过：`source=beefapi`, `scope=global`, `rate=0.1`, `rateSource=default`；320px 商家和我的收益视图均显示 10%。联调服务及临时 Go fixture 已停止，演示预览恢复到 4311。
+
+## 2026-09-18 Fuji 已授权单笔实测
+
+Ender 明确授权后，真实部署 Settlement、充值 1 测试 USDC，使用现有结算 worker 的自动调度完成 BeefAPI 临时测试库中的冻结单。收款地址余额 0 → 1 USDC；来源记录 completed、withdrawal_id=1、pending=0、paid=1000000。重复执行两次 worker tick 没有重复出款。最终 RPC 读回再次核对 receipt success、finalized block、合约 paid 标记及收款余额。
+
+公开凭证见 [Fuji 验收记录](evidence/fuji-acceptance-2026-09-18.json)。此次使用真实 Fuji 网络及测试代币，不是生产 BeefAPI 余额验证。临时来源服务和 Fuji worker 验收后停止；现有 4311 演示预览仍连接本地测试链。执行私钥仍仅从用户指定文件在内存中读取；未进入版本库或前端。
