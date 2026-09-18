@@ -312,7 +312,7 @@ export function runtimeConfig(
     tickMs: partial.tickMs ?? DEFAULT_TICK_MS,
     dbPath: partial.dbPath ?? join('.local', 'settlement.sqlite'),
     lockPath: partial.lockPath ?? join('.local', 'settlement.lock'),
-    publicDir: partial.publicDir ?? join(import.meta.dir, '../public'),
+    publicDir: partial.publicDir ?? join(import.meta.dir, '../web/dist'),
     merchantId: partial.merchantId ?? MERCHANT_ID,
     partnerId: partial.partnerId ?? PARTNER_ID,
     partnerName: partial.partnerName ?? PARTNER_NAME,
@@ -397,7 +397,7 @@ export function loadConfig(opts?: {
     ? isAbsolute(env.SETTLEMENT_PUBLIC_DIR)
       ? env.SETTLEMENT_PUBLIC_DIR
       : resolve(cwd, env.SETTLEMENT_PUBLIC_DIR)
-    : join(import.meta.dir, '../public');
+    : join(import.meta.dir, '../web/dist');
 
   const cfg = runtimeConfig({
     host: env.SETTLEMENT_HOST ?? '127.0.0.1',

@@ -8,3 +8,6 @@ coverage
 *.pem
 *.key
 **/secrets*
+
+web/node_modules
+web/dist

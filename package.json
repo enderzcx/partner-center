@@ -11,7 +11,9 @@
     "chain:local": "bun scripts/local-chain.ts",
     "verify": "bun run typecheck && bun test",
     "demo:orders": "bun scripts/order-demo.ts",
-    "verify:orders": "bun scripts/verify-order-demo.ts"
+    "verify:orders": "bun scripts/verify-order-demo.ts",
+    "build:web": "cd web && bun run build",
+    "dev:web": "cd web && bun run dev"
   },
   "dependencies": {
     "viem": "2.47.0",

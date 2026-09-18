@@ -6,3 +6,5 @@ coverage/
 .grok-companion/
 
 deploy/dist/
+
+web/dist/

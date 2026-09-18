@@ -1,3 +1,4 @@
+import { staticFileFor } from "./static.ts";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -80,20 +81,6 @@ export {
   acquireProcessLock,
 };
 
-const STATIC_FILES: Record<string, { file: string; type: string }> = {
-  "/": { file: "index.html", type: "text/html; charset=utf-8" },
-  "/index.html": { file: "index.html", type: "text/html; charset=utf-8" },
-  "/app.js": { file: "app.js", type: "text/javascript; charset=utf-8" },
-  "/style.css": { file: "style.css", type: "text/css; charset=utf-8" },
-  "/fonts/schibsted-latin.woff2": {
-    file: "fonts/schibsted-latin.woff2",
-    type: "font/woff2",
-  },
-  "/fonts/geist-mono-latin.woff2": {
-    file: "fonts/geist-mono-latin.woff2",
-    type: "font/woff2",
-  },
-};
 
 export type SettlementApp = {
   fetch: (req: Request) => Promise<Response>;
@@ -551,9 +538,10 @@ export function createApp(opts: {
         }
         return json(200, { ok: true });
       }
-      if (req.method === "GET" && STATIC_FILES[url.pathname]) {
+      const staticFile = req.method === "GET" ? staticFileFor(url.pathname) : null;
+      if (staticFile) {
         requireHost(req);
-        const spec = STATIC_FILES[url.pathname];
+        const spec = staticFile;
         let headers: Record<string, string> = {
           ...securityHeaders(),
           "Content-Type": spec.type,

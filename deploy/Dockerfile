@@ -4,12 +4,20 @@ WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production
 
+FROM ${BUN_IMAGE} AS frontend
+WORKDIR /app/web
+COPY web/package.json web/bun.lock ./
+RUN bun install --frozen-lockfile
+COPY web ./
+COPY public /app/public
+RUN bun run build
+
 FROM ${BUN_IMAGE}
 WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY package.json ./
 COPY src ./src
-COPY public ./public
+COPY --from=frontend /app/web/dist ./web/dist
 COPY scripts/public-demo.ts ./scripts/public-demo.ts
 COPY --chmod=0755 deploy/dist/settlement-demo-source /usr/local/bin/settlement-demo-source
 COPY deploy/dist/new-api-LICENSE /usr/share/doc/partner-demo/new-api-LICENSE
