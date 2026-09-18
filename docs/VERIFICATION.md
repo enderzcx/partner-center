@@ -83,3 +83,5 @@ Ender 明确授权后，真实部署 Settlement、充值 1 测试 USDC，使用�
 订单 `fuji-order-demo-20260918-001` / `global_6c1a68e9158845c9ba37fde7345a2013`：模拟实付10USD，创建时锁定比例0.1，既有 BeefAPI 支付完成逻辑实际记入1000000 micro-USDC佣金。定时器自动冻结/付款，收款钱包余额1→2测试USDC；来源结算单completed、withdrawal_id=1、pending=0、paid=1000000。重复确认和再次执行未重复付款。
 
 付款交易 `0x4d90fbc94781a485ff31834e98f43161e3c257b68b450771694d7c855f2f9a48`，receipt success，区块58457829已finalized。合约充值交易 `0x85ab27243343d8cb982a53c94d83a868d6db9fba6720254f064c5045f023e139`。完整公开凭证见 [Fuji订单验收](evidence/fuji-order-demo-2026-09-18.json)。此次是测试订单模拟支付、真实Fuji测试币出款，不是生产支付渠道收款验收。此前“等待签名”状态已由本节完成记录取代；当前单笔授权已执行，不可重复充值或新建付款。
+
+浏览器读回也已确认：Fuji 测试网、累计到账1.00、订单“已到账”、回执“已完成”，收款地址与交易链接均匹配上述凭证。截图捕获遇到 CDP timeout，因此不把截图列为本次证据；实际 DOM 与 API 读回成功。
