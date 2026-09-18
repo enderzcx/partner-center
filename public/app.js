@@ -1,10 +1,10 @@
 "use strict";
 const $ = (id) => document.getElementById(id);
 const statuses = {
-  reserved: "已预留",
-  prepared: "待广播",
-  broadcast: "等待链上确认",
-  confirmed: "已到账 · 待记账",
+  reserved: "待付款",
+  prepared: "准备发送",
+  broadcast: "等待确认",
+  confirmed: "已到账，更新中",
   completed: "已完成",
   blocked: "需要处理",
 };
@@ -75,6 +75,17 @@ function notice(message, error = false) {
   $("notice").textContent = message;
   $("notice").className = "notice" + (error ? " error" : "");
 }
+function viewCopy() {
+  const merchant = role === "merchant";
+  $("identity").textContent = merchant ? "商家" : "推广者";
+  $("page-title").textContent = merchant ? "结算" : "我的收益";
+  $("page-description").textContent = merchant
+    ? "查看可结算收益和出款进度。"
+    : "查看收益和到账记录。";
+  const name = state?.partner?.name || state?.partner?.id || "";
+  $("view-label").textContent = name;
+  $("view-label").hidden = !name;
+}
 async function api(path, data) {
   const response = await fetch(path, {
     method: data === undefined ? "GET" : "POST",
@@ -106,7 +117,7 @@ function lock(value) {
 }
 async function action(button, task, message) {
   if (busy) return;
-  const text = button.textContent;
+  const html = button.innerHTML;
   lock(true);
   button.textContent = "处理中…";
   try {
@@ -116,7 +127,7 @@ async function action(button, task, message) {
   } catch (error) {
     notice(error.message, true);
   } finally {
-    button.textContent = text;
+    button.innerHTML = html;
     lock(false);
     if (state) renderControls();
   }
@@ -147,24 +158,32 @@ function renderControls() {
   $("auto-state").className =
     "badge" +
     ((!fixture ? !state.paused : state.partner.autoSettle) ? " good" : "");
-  if (!fixture)
+  if (!fixture) {
+    $("recipient").className = "wallet-note";
     $("recipient").textContent =
       "收款地址由 BeefAPI 随结算单确认，可在每笔回执中查看。";
+  } else {
+    $("recipient").className = "address";
+  }
   $("min-description").textContent = fixture
     ? "可用收益满 " + precise(state.minAmount) + " USDC 后自动结算。"
-    : "佣金由接入方预留，按结算单指定钱包支付。";
-  $("source-name").textContent = fixture
-    ? "BeefAPI · 测试数据"
-    : "BeefAPI · 已接入";
+    : "";
+  $("min-description").hidden = !fixture;
+  $("source-name").textContent = fixture ? "测试数据" : "接入方 BeefAPI";
   $("source-description").textContent = fixture
     ? role === "merchant"
-      ? "手动添加演示佣金，验证完整结算过程。"
-      : "划入后可用于测试消费，不再参与结算。当前余额 " +
+      ? ""
+      : "划入后用于测试消费，不再参与结算。当前余额 " +
         precise(state.consumed ?? state.partner.consumed) +
         " USDC。"
-    : "结算单由 BeefAPI 提交，到账后自动回写结果。";
+    : "收款地址以结算单为准。";
   $("run").disabled = busy || !state.network.configured;
   $("bind").disabled = busy;
+}
+function statusClass(status) {
+  if (status === "completed") return "good";
+  if (status === "blocked") return "warn";
+  return "";
 }
 function render() {
   const n = state.network || {},
@@ -172,53 +191,45 @@ function render() {
   const warning = [state.sourceError, n.error].filter(Boolean).join("；");
   $("service-warning").hidden = !warning;
   $("service-warning").textContent = warning;
-  $("network-name").textContent = fuji ? "Fuji 测试网" : "本地链演示";
+  $("network-name").textContent = fuji ? "Fuji 测试网" : "测试网络";
   $("network-description").textContent = n.configured
-    ? fuji
-      ? "Avalanche · Chain ID 43113 · 测试资金"
-      : "本机隔离网络 · 测试资金"
+    ? ""
     : "出款网络暂不可用，请检查连接";
+  $("network-description").hidden = n.configured;
   for (const key of ["available", "pending", "paid"])
     $(key).textContent = precise(state.partner[key]);
   $("token-balance").textContent = precise(state.wallet?.token);
   $("gas-balance").textContent = units(state.wallet?.gas, 18, 4);
   $("recipient").textContent = state.partner.wallet || "尚未绑定收款钱包";
-  $("view-label").textContent =
-    (role === "merchant" ? "商家工作台" : "推广者工作台") +
-    " · " +
-    (state.partner.name || state.partner.id || "测试推广者");
+  viewCopy();
   const rows = Array.isArray(state.payouts) ? state.payouts : [];
-  $("record-count").textContent = rows.length + " 笔记录";
+  $("record-count").textContent = rows.length + " 笔";
   const signature = JSON.stringify(rows);
   if (signature !== ledgerSignature) {
     ledgerSignature = signature;
     if (!rows.length)
       $("ledger-content").innerHTML =
-        '<div class="empty"><strong>还没有结算记录</strong>佣金进入结算后，可在这里查看进度与回执。</div>';
+        '<div class="empty"><strong>还没有结算记录</strong>出款开始后，进度和回执会显示在这里。</div>';
     else
       $("ledger-content").innerHTML =
-        '<table class="table"><thead><tr><th scope="col">结算单 / 时间</th><th scope="col" class="number">金额 · USDC</th><th scope="col">收款钱包</th><th scope="col" class="status-cell">状态</th></tr></thead><tbody>' +
+        '<table class="table"><thead><tr><th scope="col">结算单</th><th scope="col" class="number">金额</th><th scope="col">收款钱包</th><th scope="col" class="status-cell">状态</th></tr></thead><tbody>' +
         rows
           .map(
             (p) =>
-              '<tr><td><button class="receipt-button" data-receipt="' +
+              '<tr><td><button class="receipt-button" type="button" data-receipt="' +
               escapeHTML(p.id) +
               '">' +
               escapeHTML(short(p.id)) +
               "<span>" +
               escapeHTML(time(p.createdAt)) +
-              ' · 查看回执 ↗</span></button></td><td class="number">' +
+              " · 查看回执</span></button></td><td class=\"number\">" +
               escapeHTML(precise(p.amount)) +
               '</td><td title="' +
               escapeHTML(p.recipient) +
               '">' +
               escapeHTML(short(p.recipient)) +
               '</td><td class="status-cell"><span class="badge ' +
-              (p.status === "completed"
-                ? "good"
-                : p.status === "blocked"
-                  ? "warn"
-                  : "") +
+              statusClass(p.status) +
               '">' +
               escapeHTML(statuses[p.status] || p.status) +
               "</span></td></tr>",
@@ -240,14 +251,25 @@ async function refresh() {
     if (!busy) lock(false);
   } catch (error) {
     notice("同步失败：" + error.message, true);
-    $("sync-time").textContent = state ? "数据未更新，请重试" : "尚未连接服务";
+    $("sync-time").textContent = state ? "数据未更新，请重试" : "尚未连接";
     if (!state)
       $("ledger-content").innerHTML =
-        '<div class="empty"><strong>无法读取结算记录</strong>请确认服务已启动，然后刷新数据。</div>';
+        '<div class="empty"><strong>无法读取结算记录</strong>请刷新后重试。</div>';
     throw error;
   } finally {
     fetching = false;
   }
+}
+function field(label, value, mono) {
+  return (
+    "<div><dt>" +
+    escapeHTML(label) +
+    "</dt><dd" +
+    (mono ? ' class="mono"' : "") +
+    ">" +
+    escapeHTML(value) +
+    "</dd></div>"
+  );
 }
 function renderReceipt(id) {
   const p = state.payouts.find((p) => String(p.id) === String(id));
@@ -255,41 +277,32 @@ function renderReceipt(id) {
   const n = state.network;
   const fuji = Number(n.chainId) === 43113;
   const confirmed = ["confirmed", "completed"].includes(p.status);
-  const fields = [
-    ["结算单号", p.id],
-    ["来源单号", p.sourceId],
-    ["网络", (fuji ? "Fuji 测试网" : "本地链演示") + " · " + n.chainId],
-    ["代币", n.token || "地址未提供"],
-    ["收款地址", p.recipient],
-    ["链上交易", p.txHash || "尚未广播"],
-    ["创建时间", time(p.createdAt)],
-    ["到账核验", confirmed ? "链上已确认" : "尚未确认到账"],
-    ["账本状态", p.status === "completed" ? "已回写" : "待完成"],
-  ];
-  if (p.error) fields.push(["待处理原因", p.error]);
+  const networkName = fuji ? "Fuji 测试网" : "测试网络";
+  let fields =
+    field("结算单号", p.id, true) +
+    field("接入单号", p.sourceId || "暂无单号", true) +
+    field("网络", networkName + " · " + n.chainId, true) +
+    field("代币", n.token || "暂无代币地址", true) +
+    field("收款地址", p.recipient, true) +
+    field("链上交易", p.txHash || "尚未发送", true) +
+    field("创建时间", time(p.createdAt)) +
+    field("到账", confirmed ? "已确认" : "尚未确认") +
+    field("记录", p.status === "completed" ? "已完成" : "更新中");
+  if (p.error) fields += field("待处理原因", p.error);
   $("receipt-content").innerHTML =
     '<span class="badge ' +
-    (p.status === "completed" ? "good" : p.status === "blocked" ? "warn" : "") +
+    statusClass(p.status) +
     '">' +
     escapeHTML(statuses[p.status] || p.status) +
     '</span><div class="receipt-amount">' +
     escapeHTML(precise(p.amount)) +
     ' <small>USDC</small></div><dl class="receipt-fields">' +
-    fields
-      .map(
-        ([k, v]) =>
-          "<div><dt>" +
-          escapeHTML(k) +
-          "</dt><dd>" +
-          escapeHTML(v) +
-          "</dd></div>",
-      )
-      .join("") +
+    fields +
     "</dl>" +
     (fuji && /^0x[0-9a-fA-F]{64}$/.test(p.txHash || "")
       ? '<p class="explorer-link"><a target="_blank" rel="noopener noreferrer" href="https://testnet.snowtrace.io/tx/' +
         encodeURIComponent(p.txHash) +
-        '">在 Fuji 浏览器查看交易 ↗</a></p>'
+        '">在 Fuji 浏览器查看交易</a></p>'
       : "");
 }
 document.querySelectorAll("[data-role]").forEach((button) =>
@@ -299,15 +312,7 @@ document.querySelectorAll("[data-role]").forEach((button) =>
       b.classList.toggle("selected", b === button);
       b.setAttribute("aria-pressed", String(b === button));
     });
-    $("identity").textContent = role === "merchant" ? "商家" : "推广者";
-    $("view-label").textContent =
-      role === "merchant" ? "商家工作台" : "推广者工作台";
-    $("page-title").textContent =
-      role === "merchant" ? "每笔收益，有据可查。" : "收益到账，清楚可见。";
-    $("page-description").textContent =
-      role === "merchant"
-        ? "从佣金入账到钱包到账，在这里查看结算进度。"
-        : "管理收款钱包，查看你的收益与到账记录。";
+    viewCopy();
     if (state) renderControls();
   }),
 );
@@ -325,7 +330,7 @@ $("run").addEventListener("click", () =>
   action(
     $("run"),
     () => api("/api/admin/run", {}),
-    "结算检查已执行，请查看记录状态",
+    "已检查结算，请查看记录。",
   ),
 );
 $("auto").addEventListener("click", () =>
@@ -392,7 +397,7 @@ for (const type of ["commission", "transfer"])
             : "/api/partner/transfer",
           { amount },
         ),
-      type === "commission" ? "测试佣金已添加" : "已划入测试消费余额",
+      type === "commission" ? "测试收益已添加" : "已划入测试消费余额",
     );
   });
 $("ledger-content").addEventListener("click", (event) => {

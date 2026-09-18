@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
-    <title>结算台 · Settlement</title>
+    <title>结算台</title>
     <link rel="stylesheet" href="/style.css" />
     <script src="/app.js" defer></script>
   </head>
@@ -12,38 +12,89 @@
     <a class="skip" href="#main">跳到主要内容</a>
     <div class="shell">
       <aside class="sidebar">
-        <a class="wordmark" href="/" aria-label="结算台首页"
-          ><span class="brand-mark" aria-hidden="true">↗</span
-          ><span>结算台<small lang="en">Settlement</small></span></a
-        >
-        <div class="workspace-label">测试工作区</div>
-        <nav class="nav" aria-label="演示身份">
+        <a class="wordmark" href="/" aria-label="结算台首页">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>结算台</span>
+        </a>
+        <nav class="nav" aria-label="结算台页面">
           <button
             class="nav-item selected"
             data-role="merchant"
             aria-pressed="true"
           >
-            <span>01</span>商家结算</button
-          ><button class="nav-item" data-role="promoter" aria-pressed="false">
-            <span>02</span>我的收益
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="3" y="3" width="7" height="9" rx="1" />
+              <rect x="14" y="3" width="7" height="5" rx="1" />
+              <rect x="14" y="12" width="7" height="9" rx="1" />
+              <rect x="3" y="16" width="7" height="5" rx="1" />
+            </svg>
+            商家
+          </button>
+          <button class="nav-item" data-role="promoter" aria-pressed="false">
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <rect x="2" y="6" width="20" height="14" rx="2" />
+              <path d="M2 10h20" />
+              <circle cx="16" cy="15" r="1.2" />
+            </svg>
+            我的收益
           </button>
         </nav>
         <div class="sidebar-bottom">
-          <span class="dot"></span> 独立结算演示
-          <p>测试身份切换<br />仅用于本地演示</p>
+          <span class="workspace-label">测试工作区</span>
+          <span id="identity">商家</span>
         </div>
       </aside>
       <div class="workspace">
-        <header class="topbar">
-          <span id="view-label">商家工作台</span
-          ><span class="identity">演示身份 · <b id="identity">商家</b></span>
-        </header>
         <main id="main">
+          <header class="page-heading">
+            <div>
+              <h1 id="page-title">结算</h1>
+              <p id="page-description">查看可结算收益和出款进度。</p>
+              <p id="view-label" class="view-label" hidden></p>
+            </div>
+            <button id="refresh" class="button quiet" type="button">
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M21 12a9 9 0 1 1-2.3-6" />
+                <path d="M21 3v6h-6" />
+              </svg>
+              刷新
+            </button>
+          </header>
           <div class="network-bar">
             <span
               ><span class="dot"></span
               ><strong id="network-name">正在读取网络</strong></span
-            ><span id="network-description">正在连接结算服务</span>
+            ><span id="network-description">正在连接</span>
           </div>
           <div
             id="service-warning"
@@ -58,140 +109,127 @@
             aria-live="polite"
             hidden
           ></div>
-          <div class="page-heading">
-            <div>
-              <div class="eyebrow" lang="en">SETTLEMENT / OVERVIEW</div>
-              <h1 id="page-title">每笔收益，有据可查。</h1>
-              <p id="page-description">
-                从佣金入账到钱包到账，在这里查看结算进度。
-              </p>
-            </div>
-            <button id="refresh" class="button quiet">
-              刷新数据 <span aria-hidden="true">↻</span>
-            </button>
-          </div>
           <div class="summary" aria-label="收益概览">
-            <div class="metric main-metric">
+            <div class="metric">
               <span>可结算收益 <small>USDC</small></span
               ><strong id="available">···</strong>
-              <p>尚未进入出款流程</p>
+              <p>尚未进入出款</p>
             </div>
             <div class="metric">
               <span>结算中 <small>USDC</small></span
               ><strong id="pending">···</strong>
-              <p>已预留，等待到账与确认</p>
+              <p>已提交，等待到账</p>
             </div>
             <div class="metric">
               <span>累计到账 <small>USDC</small></span
               ><strong id="paid">···</strong>
-              <p>付款确认且账本已更新</p>
+              <p>已付款，记录已更新</p>
             </div>
           </div>
-          <div class="operation-grid">
-            <section
-              class="operation-panel"
-              id="merchant-panel"
-              aria-labelledby="control-title"
-            >
-              <div class="section-top">
-                <h2 id="control-title">出款管理</h2>
-                <span id="pause-state" class="badge">读取中</span>
+          <p class="source-line">
+            <strong id="source-name">读取中</strong>
+            <span id="source-description">正在读取</span>
+          </p>
+          <section
+            class="operation-panel"
+            id="merchant-panel"
+            aria-labelledby="control-title"
+          >
+            <div class="section-top">
+              <h2 id="control-title">出款</h2>
+              <span id="pause-state" class="badge">读取中</span>
+            </div>
+            <dl class="balances">
+              <div>
+                <dt>结算资金余额</dt>
+                <dd>
+                  <span id="token-balance">···</span> <small>USDC</small>
+                </dd>
               </div>
-              <dl class="balances">
-                <div>
-                  <dt>结算资金余额</dt>
-                  <dd>
-                    <span id="token-balance">···</span> <small>USDC</small>
-                  </dd>
-                </div>
-                <div>
-                  <dt>网络手续费余额</dt>
-                  <dd><span id="gas-balance">···</span> <small>AVAX</small></dd>
-                </div>
-              </dl>
-              <p class="subtle">暂停后不发起新出款，已提交交易继续核对。</p>
-              <div class="actions">
-                <button class="button primary" id="run" disabled>
-                  执行结算</button
-                ><button class="button" id="pause" disabled>暂停出款</button>
+              <div>
+                <dt>网络手续费余额</dt>
+                <dd><span id="gas-balance">···</span> <small>AVAX</small></dd>
               </div>
-            </section>
-            <section
-              class="operation-panel"
-              id="promoter-panel"
-              aria-labelledby="wallet-title"
-              hidden
-            >
-              <div class="section-top">
-                <h2 id="wallet-title">收款钱包</h2>
-                <span id="auto-state" class="badge">读取中</span>
-              </div>
-              <p id="recipient" class="address">正在读取钱包</p>
-              <p class="subtle" id="min-description">
-                收益达到结算门槛后，自动发送至绑定钱包。
-              </p>
-              <div class="actions">
-                <button class="button primary" id="bind" disabled>
-                  连接并验证钱包</button
-                ><button class="button" id="auto" disabled>开启自动结算</button
-                ><button class="button quiet" id="demo-wallet" hidden>
-                  使用本地测试钱包
-                </button>
-              </div>
-            </section>
-            <section
-              class="operation-panel source-panel"
-              aria-labelledby="source-title"
-            >
-              <div class="section-top">
-                <h2 id="source-title">佣金来源</h2>
-                <span id="source-name" class="source-name">读取中</span>
-              </div>
-              <p class="source-description" id="source-description">
-                正在获取接入状态
-              </p>
-              <div id="fixture-controls" hidden>
-                <label for="commission-amount"
-                  >添加一笔测试佣金 <small>USDC</small></label
-                >
-                <form id="commission-form" class="input-action">
-                  <input
-                    id="commission-amount"
-                    type="text"
-                    inputmode="decimal"
-                    value="10.00"
-                    autocomplete="off"
-                    required
-                    aria-describedby="commission-error"
-                  /><button class="button" type="submit">添加佣金</button>
-                </form>
-                <p id="commission-error" class="field-error" role="alert"></p>
-              </div>
-              <div id="transfer-controls" hidden>
-                <label for="transfer-amount"
-                  >划入测试消费余额 <small>USDC</small></label
-                >
-                <form id="transfer-form" class="input-action">
-                  <input
-                    id="transfer-amount"
-                    type="text"
-                    inputmode="decimal"
-                    value="1.00"
-                    autocomplete="off"
-                    required
-                    aria-describedby="transfer-error"
-                  /><button class="button" type="submit">划入余额</button>
-                </form>
-                <p id="transfer-error" class="field-error" role="alert"></p>
-              </div>
-            </section>
-          </div>
+            </dl>
+            <p class="subtle">
+              暂停后不再发起付款，已提交的付款会继续确认。
+            </p>
+            <div class="actions">
+              <button class="button primary" id="run" type="button" disabled>
+                执行结算
+              </button>
+              <button class="button" id="pause" type="button" disabled>
+                暂停出款
+              </button>
+            </div>
+            <details id="fixture-controls" class="tools" hidden>
+              <summary>演示工具</summary>
+              <label for="commission-amount"
+                >金额 <small>USDC</small></label
+              >
+              <form id="commission-form" class="input-action">
+                <input
+                  id="commission-amount"
+                  type="text"
+                  inputmode="decimal"
+                  value="10.00"
+                  autocomplete="off"
+                  required
+                  aria-describedby="commission-error"
+                />
+                <button class="button" type="submit">添加测试收益</button>
+              </form>
+              <p id="commission-error" class="field-error" role="alert"></p>
+            </details>
+          </section>
+          <section
+            class="operation-panel"
+            id="promoter-panel"
+            aria-labelledby="wallet-title"
+            hidden
+          >
+            <div class="section-top">
+              <h2 id="wallet-title">收款钱包</h2>
+              <span id="auto-state" class="badge">读取中</span>
+            </div>
+            <p id="recipient" class="address">正在读取钱包</p>
+            <p class="subtle" id="min-description">
+              可用收益达到门槛后，会付到绑定钱包。
+            </p>
+            <div class="actions">
+              <button class="button primary" id="bind" type="button" disabled>
+                连接并验证钱包
+              </button>
+              <button class="button" id="auto" type="button" disabled>
+                开启自动结算
+              </button>
+            </div>
+            <details id="transfer-controls" class="tools" hidden>
+              <summary>演示工具</summary>
+              <label for="transfer-amount"
+                >金额 <small>USDC</small></label
+              >
+              <form id="transfer-form" class="input-action">
+                <input
+                  id="transfer-amount"
+                  type="text"
+                  inputmode="decimal"
+                  value="1.00"
+                  autocomplete="off"
+                  required
+                  aria-describedby="transfer-error"
+                />
+                <button class="button" type="submit">划入余额</button>
+              </form>
+              <p id="transfer-error" class="field-error" role="alert"></p>
+              <button class="button quiet" id="demo-wallet" type="button" hidden>
+                使用本地测试钱包
+              </button>
+            </details>
+          </section>
           <section class="ledger" aria-labelledby="ledger-title">
             <div class="section-top ledger-heading">
-              <div>
-                <h2 id="ledger-title">结算记录</h2>
-                <p class="subtle">查看每笔出款及其链上回执</p>
-              </div>
+              <h2 id="ledger-title">结算记录</h2>
               <span id="record-count" class="subtle">正在读取</span>
             </div>
             <div id="ledger-content" aria-live="polite">
@@ -199,7 +237,7 @@
             </div>
           </section>
           <footer>
-            <span>测试资金 · 无真实货币价值</span
+            <span>测试环境 · 资金无实际价值</span
             ><span id="sync-time">等待首次同步</span>
           </footer>
         </main>
@@ -207,16 +245,16 @@
     </div>
     <dialog id="receipt" aria-labelledby="receipt-title">
       <div class="section-top">
-        <span class="eyebrow">结算回执</span
-        ><button
+        <h2 id="receipt-title">出款详情</h2>
+        <button
           class="button quiet"
           id="close-receipt"
-          aria-label="关闭结算回执"
+          type="button"
+          aria-label="关闭出款详情"
         >
-          关闭 ×
+          关闭
         </button>
       </div>
-      <h2 id="receipt-title">出款详情</h2>
       <div id="receipt-content"></div>
     </dialog>
   </body>
