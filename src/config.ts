@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
-import { getAddress, isAddress, isHex } from 'viem';
+import { getAddress, isAddress, isHex, keccak256, toHex } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { DEFAULT_MIN_AMOUNT } from './money.ts';
 import type { Address, Hex, SourceKind } from './types.ts';
 import { ServiceError } from './types.ts';
@@ -61,23 +62,52 @@ export function originOf(host: string, port: number): string {
   return `http://${h}:${port}`;
 }
 
-export function networkMeta(chainId: 43113 | 31337, token: string) {
-  if (chainId === 43113) {
-    return {
-      name: 'Avalanche Fuji',
-      chainId,
-      explorer: 'https://testnet.snowtrace.io',
-      configured: true,
-      token,
-    };
-  }
-  return {
-    name: 'Local testnet',
-    chainId,
-    explorer: '',
-    configured: true,
-    token,
-  };
+export function networkMeta(
+  chainId: 43113 | 31337,
+  token: string,
+  extra?: { configured?: boolean; error?: string },
+) {
+  const configured = extra?.configured ?? true;
+  const error = extra?.error;
+  const base =
+    chainId === 43113
+      ? {
+          name: 'Avalanche Fuji',
+          chainId,
+          explorer: 'https://testnet.snowtrace.io',
+          configured,
+          token,
+        }
+      : {
+          name: 'Local testnet',
+          chainId,
+          explorer: '',
+          configured,
+          token,
+        };
+  return error ? { ...base, error } : base;
+}
+
+export function executorAddress(privateKey: Hex): Address {
+  return privateKeyToAccount(privateKey).address as Address;
+}
+
+export function runtimeFingerprint(config: RuntimeConfig, executor?: Address): string {
+  const exec = executor ?? executorAddress(config.chain.privateKey);
+  return keccak256(
+    toHex(
+      [
+        config.source,
+        config.source === 'beefapi' ? config.beefapiBaseUrl : '',
+        config.partnerId,
+        String(config.partnerUserId),
+        String(config.chain.chainId),
+        getAddress(config.chain.token),
+        getAddress(config.chain.contract),
+        getAddress(exec),
+      ].join('|'),
+    ),
+  );
 }
 
 function requiredAddress(value: unknown, label: string): Address {

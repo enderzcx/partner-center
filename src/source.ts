@@ -9,36 +9,24 @@ import {
   type Source,
   type SourceItem,
   ServiceError,
-  sanitizeError,
 } from './types.ts';
 
 type Envelope = {
   success?: unknown;
   message?: unknown;
   data?: unknown;
-  reservations?: unknown;
-  items?: unknown;
-  list?: unknown;
-  rows?: unknown;
 };
 
-function unwrap(json: unknown): unknown {
-  if (Array.isArray(json)) return json;
-  if (!json || typeof json !== 'object') return json;
+function requireEnvelope(json: unknown): unknown {
+  if (!json || typeof json !== 'object' || Array.isArray(json)) {
+    throw new ServiceError(502, '来源服务返回无法识别。');
+  }
   const body = json as Envelope;
-  if (body.success === false) {
-    throw new ServiceError(502, sanitizeError(String(body.message ?? '来源服务返回失败。')));
+  if (body.success !== true) {
+    throw new ServiceError(502, '来源服务返回失败。');
   }
-  const data = 'data' in body ? body.data : json;
-  if (Array.isArray(data)) return data;
-  if (data && typeof data === 'object') {
-    const nested = data as Envelope;
-    for (const key of ['reservations', 'items', 'list', 'rows'] as const) {
-      if (Array.isArray(nested[key])) return nested[key];
-    }
-    return data;
-  }
-  return data;
+  if (!('data' in body)) throw new ServiceError(502, '来源服务返回无法识别。');
+  return body.data;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -46,6 +34,14 @@ function asRecord(value: unknown): Record<string, unknown> {
     throw new ServiceError(502, '来源数据格式无法识别。');
   }
   return value as Record<string, unknown>;
+}
+
+function sameAddress(a: string, b: string): boolean {
+  return isAddress(a, { strict: false }) && isAddress(b, { strict: false }) && getAddress(a) === getAddress(b);
+}
+
+export function beefapiSourceId(requestId: string, id: number): string {
+  return `beefapi:${requestId}:${id}`;
 }
 
 export function createFixtureSource(store: Store): Source {
@@ -66,10 +62,13 @@ export function createFixtureSource(store: Store): Source {
         consumed: partner.consumed.toString(),
       };
     },
+    lastError() {
+      return null;
+    },
   };
 }
 
-export function createBeefApiSource(store: Store, config: RuntimeConfig): Source {
+export function createBeefApiSource(_store: Store, config: RuntimeConfig): Source {
   let url: URL;
   try {
     url = new URL(config.beefapiBaseUrl);
@@ -80,8 +79,9 @@ export function createBeefApiSource(store: Store, config: RuntimeConfig): Source
     throw new Error('BEEFAPI_TEST_BASE_URL 必须是本机回环地址。');
   }
   const base = url.toString().replace(/\/$/, '');
+  let lastError: string | null = null;
 
-  const request = async (path: string, init?: RequestInit): Promise<unknown> => {
+  const fetchJson = async (path: string, init?: RequestInit): Promise<{ status: number; json: unknown }> => {
     let res: Response;
     try {
       res = await fetch(`${base}${path}`, {
@@ -94,10 +94,9 @@ export function createBeefApiSource(store: Store, config: RuntimeConfig): Source
           ...(init?.headers ?? {}),
         },
       });
-    } catch (err) {
-      throw new ServiceError(502, sanitizeError(err));
+    } catch {
+      throw new ServiceError(502, '来源服务暂时不可用。');
     }
-    if (res.status === 404) return null;
     const text = await res.text();
     let json: unknown = null;
     if (text) {
@@ -107,96 +106,138 @@ export function createBeefApiSource(store: Store, config: RuntimeConfig): Source
         throw new ServiceError(502, '来源服务返回无法解析。');
       }
     }
-    if (!res.ok) {
-      const message =
-        json && typeof json === 'object' && 'message' in json
-          ? String((json as Envelope).message ?? res.status)
-          : `来源服务返回 ${res.status}`;
-      throw new ServiceError(res.status === 401 ? 502 : 502, sanitizeError(message));
+    return { status: res.status, json };
+  };
+
+  const parseRow = (raw: unknown): SourceItem | 'skip' => {
+    const row = asRecord(raw);
+    if (Number(row.user_id) !== config.partnerUserId) return 'skip';
+    const id = Number(row.id);
+    const requestId = String(row.request_id ?? '');
+    if (!Number.isInteger(id) || id <= 0 || !requestId) {
+      throw new ServiceError(502, '来源结算单缺少有效编号。');
     }
-    return unwrap(json);
+    if (Number(row.chain_id) !== config.chain.chainId) {
+      throw new ServiceError(502, '来源结算单网络与当前配置不一致。');
+    }
+    const tokenRaw = String(row.token ?? '');
+    if (!isAddress(tokenRaw, { strict: false }) || getAddress(tokenRaw) !== getAddress(config.chain.token)) {
+      throw new ServiceError(502, '来源结算单代币与当前配置不一致。');
+    }
+    if (String(row.status) !== 'reserved') return 'skip';
+    const recipientRaw = String(row.recipient ?? '');
+    if (!isAddress(recipientRaw, { strict: false })) {
+      throw new ServiceError(502, '来源结算单收款地址无效。');
+    }
+    const amount = parseAmount(row.amount_usdc, '结算金额');
+    const createdRaw = Number(row.created_at ?? 0);
+    return {
+      sourceId: beefapiSourceId(requestId, id),
+      recipient: getAddress(recipientRaw) as Address,
+      amount,
+      createdAt: createdRaw > 10_000_000_000 ? createdRaw : createdRaw * 1000 || Date.now(),
+      alreadyFrozen: true,
+      numericId: id,
+      requestId,
+      chainId: Number(row.chain_id),
+      token: getAddress(tokenRaw) as Address,
+    };
   };
 
   return {
     kind: 'beefapi',
+    lastError() {
+      return lastError;
+    },
     async pull(): Promise<SourceItem[]> {
+      lastError = null;
       const items: SourceItem[] = [];
-      let after = store.getCursor('beefapi');
+      let after = 0;
       for (;;) {
-        const page = unwrap(
-          await request(`/api/settlement-test/reservations?after_id=${after}&status=reserved`),
+        const { status, json } = await fetchJson(
+          `/api/settlement-test/reservations?after_id=${after}&status=reserved`,
         );
-        if (page == null) break;
-        if (!Array.isArray(page)) throw new ServiceError(502, '来源结算单格式无法识别。');
-        if (page.length === 0) break;
-        for (const raw of page) {
+        if (status === 404) throw new ServiceError(502, '来源服务暂时不可用。');
+        if (status !== 200) throw new ServiceError(502, '来源服务暂时不可用。');
+        const data = requireEnvelope(json);
+        if (!Array.isArray(data)) throw new ServiceError(502, '来源结算单格式无法识别。');
+        if (data.length === 0) break;
+        for (const raw of data) {
           const row = asRecord(raw);
           const id = Number(row.id);
-          if (!Number.isInteger(id) || id <= 0) continue;
-          after = Math.max(after, id);
-          if (Number(row.user_id) !== config.partnerUserId) continue;
-          if (Number(row.chain_id) !== config.chain.chainId) continue;
-          const tokenRaw = String(row.token ?? '');
-          if (!isAddress(tokenRaw, { strict: false })) continue;
-          if (getAddress(tokenRaw) !== getAddress(config.chain.token)) continue;
-          if (String(row.status) !== 'reserved') continue;
-          const recipientRaw = String(row.recipient ?? '');
-          if (!isAddress(recipientRaw, { strict: false })) continue;
-          let amount: bigint;
+          if (Number.isInteger(id) && id > after) after = id;
           try {
-            amount = parseAmount(row.amount_usdc, '结算金额');
-          } catch {
-            continue;
+            const parsed = parseRow(raw);
+            if (parsed !== 'skip') items.push(parsed);
+          } catch (err) {
+            if (Number(row.user_id) === config.partnerUserId) {
+              lastError = err instanceof ServiceError ? err.message : '来源结算单无法导入。';
+            }
           }
-          items.push({
-            sourceId: `beefapi:${id}`,
-            recipient: getAddress(recipientRaw) as Address,
-            amount,
-            createdAt: Number(row.created_at ?? 0) > 10_000_000_000
-              ? Number(row.created_at)
-              : Number(row.created_at ?? 0) * 1000 || Date.now(),
-            alreadyFrozen: true,
-            numericId: id,
-            chainId: Number(row.chain_id),
-            token: getAddress(tokenRaw) as Address,
-          });
         }
-        store.setCursor('beefapi', after);
-        if (page.length < 100) break;
+        if (data.length < 100) break;
       }
       return items;
     },
     async complete(payout: PayoutRecord) {
-      const match = /^beefapi:(\d+)$/.exec(payout.sourceId);
-      if (!match) throw new ServiceError(500, '来源编号无效。');
-      const body = JSON.stringify({
-        transaction_hash: payout.txHash,
-        chain_id: config.chain.chainId,
-        token: config.chain.token,
-        recipient: payout.recipient,
-        amount_usdc: payout.amount.toString(),
-      });
-      await request(`/api/settlement-test/reservations/${match[1]}/complete`, {
+      const id = payout.externalId;
+      if (!id || id <= 0) throw new ServiceError(502, '来源编号无效。');
+      if (!payout.txHash) throw new ServiceError(502, '缺少链上回执，不能回写来源。');
+      const { status, json } = await fetchJson(`/api/settlement-test/reservations/${id}/complete`, {
         method: 'POST',
-        body,
+        body: JSON.stringify({
+          transaction_hash: payout.txHash,
+          chain_id: config.chain.chainId,
+          token: config.chain.token,
+          recipient: payout.recipient,
+          amount_usdc: payout.amount.toString(),
+        }),
       });
+      if (status === 404 || status !== 200) {
+        throw new ServiceError(502, '来源回写未确认，将重试。');
+      }
+      let data: unknown;
+      try {
+        data = requireEnvelope(json);
+      } catch {
+        throw new ServiceError(502, '来源回写未确认，将重试。');
+      }
+      const row = asRecord(data);
+      const hash = String(row.transaction_hash ?? '').toLowerCase();
+      const expectedHash = payout.txHash.toLowerCase();
+      const tokenRaw = String(row.token ?? '');
+      const recipientRaw = String(row.recipient ?? '');
+      const requestOk = !payout.requestId || String(row.request_id ?? '') === payout.requestId;
+      if (
+        Number(row.id) !== id ||
+        String(row.status) !== 'completed' ||
+        hash !== expectedHash ||
+        Number(row.chain_id) !== config.chain.chainId ||
+        !sameAddress(tokenRaw, config.chain.token) ||
+        !sameAddress(recipientRaw, payout.recipient) ||
+        String(row.amount_usdc) !== payout.amount.toString() ||
+        !requestOk
+      ) {
+        throw new ServiceError(502, '来源回写未确认，将重试。');
+      }
     },
     async balances() {
       try {
-        const data = await request(`/api/settlement-test/partners/${config.partnerUserId}`);
-        if (data == null) return null;
+        const { status, json } = await fetchJson(
+          `/api/settlement-test/partners/${config.partnerUserId}`,
+        );
+        if (status === 404) return null;
+        if (status !== 200) return null;
+        const data = requireEnvelope(json);
         const row = asRecord(data);
         const available = row.available_usdc;
         const pending = row.pending_usdc;
         const paid = row.paid_usdc;
-        if (
-          typeof available !== 'string' ||
-          typeof pending !== 'string' ||
-          typeof paid !== 'string'
-        ) {
+        if (typeof available !== 'string' || typeof pending !== 'string' || typeof paid !== 'string') {
           return null;
         }
-        return { available, pending, paid, consumed: '0' };
+        if (available === '' || pending === '' || paid === '') return null;
+        return { available, pending, paid, consumed: '' };
       } catch {
         return null;
       }

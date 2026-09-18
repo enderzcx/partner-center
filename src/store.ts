@@ -55,6 +55,8 @@ function mapPayout(row: Record<string, unknown>): PayoutRecord {
     createdAt: Number(row.created_at),
     rawTransaction: row.raw_transaction ? (String(row.raw_transaction) as Hex) : null,
     alreadyFrozen: Number(row.already_frozen) === 1,
+    requestId: row.request_id ? String(row.request_id) : null,
+    externalId: row.external_id == null ? null : Number(row.external_id),
   };
 }
 
@@ -64,6 +66,7 @@ export function createStore(opts: {
   merchantId?: string;
   partnerId?: string;
   partnerName?: string;
+  fingerprint?: string;
 }) {
   const now = opts.now ?? Date.now;
   const merchantId = opts.merchantId ?? MERCHANT_ID;
@@ -76,7 +79,7 @@ export function createStore(opts: {
   db.exec('PRAGMA journal_mode = WAL;');
   db.exec('PRAGMA busy_timeout = 5000;');
   db.exec('PRAGMA foreign_keys = ON;');
-  db.exec('PRAGMA synchronous = NORMAL;');
+  db.exec('PRAGMA synchronous = FULL;');
   db.exec(`
     CREATE TABLE IF NOT EXISTS partner (
       id TEXT PRIMARY KEY,
@@ -92,9 +95,15 @@ export function createStore(opts: {
       id INTEGER PRIMARY KEY CHECK (id = 1),
       paused INTEGER NOT NULL DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS runtime (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      fingerprint TEXT NOT NULL,
+      bound_at INTEGER NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS commissions (
       source_id TEXT PRIMARY KEY,
       amount INTEGER NOT NULL CHECK (amount > 0 AND amount <= ${MAX_AMOUNT.toString()}),
+      remaining INTEGER NOT NULL CHECK (remaining >= 0 AND remaining <= ${MAX_AMOUNT.toString()}),
       created_at INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS payouts (
@@ -107,9 +116,17 @@ export function createStore(opts: {
       error TEXT,
       created_at INTEGER NOT NULL,
       raw_transaction TEXT,
-      already_frozen INTEGER NOT NULL DEFAULT 0
+      already_frozen INTEGER NOT NULL DEFAULT 0,
+      request_id TEXT,
+      external_id INTEGER
     );
     CREATE INDEX IF NOT EXISTS payouts_status ON payouts(status);
+    CREATE TABLE IF NOT EXISTS allocations (
+      payout_id TEXT NOT NULL,
+      commission_source_id TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      PRIMARY KEY (payout_id, commission_source_id)
+    );
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
       created_at INTEGER NOT NULL
@@ -123,10 +140,6 @@ export function createStore(opts: {
       expires_at INTEGER NOT NULL,
       consumed INTEGER NOT NULL DEFAULT 0
     );
-    CREATE TABLE IF NOT EXISTS cursors (
-      source TEXT PRIMARY KEY,
-      after_id INTEGER NOT NULL
-    );
   `);
   db.run(
     `INSERT OR IGNORE INTO partner (id, name, wallet, auto_settle, available, pending, paid, consumed)
@@ -134,6 +147,20 @@ export function createStore(opts: {
     [partnerId, partnerName],
   );
   db.run(`INSERT OR IGNORE INTO service (id, paused) VALUES (1, 0)`);
+  if (opts.fingerprint) {
+    const bound = db.query(`SELECT fingerprint FROM runtime WHERE id = 1`).get() as
+      | { fingerprint: string }
+      | null;
+    if (!bound) {
+      db.run(`INSERT INTO runtime (id, fingerprint, bound_at) VALUES (1, ?, ?)`, [
+        opts.fingerprint,
+        now(),
+      ]);
+    } else if (bound.fingerprint !== opts.fingerprint) {
+      db.close();
+      throw new Error('结算账本与当前运行配置不一致，拒绝复用。');
+    }
+  }
 
   const tx = <T>(fn: () => T): T => db.transaction(fn)();
 
@@ -162,12 +189,21 @@ export function createStore(opts: {
     return row ? mapPayout(row) : null;
   };
 
+  const getPayout = (id: string): PayoutRecord | null => {
+    const row = db.query(`SELECT * FROM payouts WHERE id = ?`).get(id) as
+      | Record<string, unknown>
+      | null;
+    return row ? mapPayout(row) : null;
+  };
+
   const insertPayout = (item: {
     sourceId: string;
     recipient: Address;
     amount: bigint;
     alreadyFrozen: boolean;
     createdAt?: number;
+    requestId?: string;
+    externalId?: number;
   }): PayoutRecord => {
     const existing = getPayoutBySource(item.sourceId);
     if (existing) {
@@ -182,9 +218,18 @@ export function createStore(opts: {
     const id = payoutId(merchantId, item.sourceId);
     const createdAt = item.createdAt ?? now();
     db.run(
-      `INSERT INTO payouts (id, source_id, recipient, amount, status, created_at, already_frozen)
-       VALUES (?, ?, ?, ?, 'reserved', ?, ?)`,
-      [id, item.sourceId, item.recipient, item.amount.toString(), createdAt, item.alreadyFrozen ? 1 : 0],
+      `INSERT INTO payouts (id, source_id, recipient, amount, status, created_at, already_frozen, request_id, external_id)
+       VALUES (?, ?, ?, ?, 'reserved', ?, ?, ?, ?)`,
+      [
+        id,
+        item.sourceId,
+        item.recipient,
+        item.amount.toString(),
+        createdAt,
+        item.alreadyFrozen ? 1 : 0,
+        item.requestId ?? null,
+        item.externalId ?? null,
+      ],
     );
     return getPayoutBySource(item.sourceId)!;
   };
@@ -231,11 +276,10 @@ export function createStore(opts: {
           amount,
         );
         const sourceId = `fixture:${crypto.randomUUID()}`;
-        db.run(`INSERT INTO commissions (source_id, amount, created_at) VALUES (?, ?, ?)`, [
-          sourceId,
-          amount.toString(),
-          now(),
-        ]);
+        db.run(
+          `INSERT INTO commissions (source_id, amount, remaining, created_at) VALUES (?, ?, ?, ?)`,
+          [sourceId, amount.toString(), amount.toString(), now()],
+        );
         db.run(`UPDATE partner SET available = available + ? WHERE id = ?`, [
           amount.toString(),
           partnerId,
@@ -249,10 +293,26 @@ export function createStore(opts: {
       }
       tx(() => {
         const partner = getPartner();
-        if (partner.available < amount) {
-          throw new ServiceError(409, '可用收益不足。');
-        }
+        if (partner.available < amount) throw new ServiceError(409, '可用收益不足。');
         assertLedgerCap(partner.consumed, amount);
+        let left = amount;
+        const rows = db
+          .query(
+            `SELECT source_id, remaining FROM commissions WHERE remaining > 0 ORDER BY created_at ASC, source_id ASC`,
+          )
+          .all() as Record<string, unknown>[];
+        for (const row of rows) {
+          if (left === 0n) break;
+          const remaining = asBigInt(row.remaining);
+          const take = remaining < left ? remaining : left;
+          const upd = db.run(
+            `UPDATE commissions SET remaining = remaining - ? WHERE source_id = ? AND remaining >= ?`,
+            [take.toString(), String(row.source_id), take.toString()],
+          );
+          if (upd.changes !== 1) throw new ServiceError(409, '可用收益不足。');
+          left -= take;
+        }
+        if (left !== 0n) throw new ServiceError(409, '可用收益不足。');
         const result = db.run(
           `UPDATE partner SET available = available - ?, consumed = consumed + ?
            WHERE id = ? AND available >= ?`,
@@ -261,56 +321,83 @@ export function createStore(opts: {
         if (result.changes !== 1) throw new ServiceError(409, '可用收益不足。');
       });
     },
-    listUnimportedCommissions(): { sourceId: string; amount: bigint; createdAt: number }[] {
+    listRemainingCommissions(): { sourceId: string; amount: bigint; remaining: bigint; createdAt: number }[] {
       const rows = db
         .query(
-          `SELECT c.source_id, c.amount, c.created_at
-           FROM commissions c
-           LEFT JOIN payouts p ON p.source_id = c.source_id
-           WHERE p.source_id IS NULL
-           ORDER BY c.created_at ASC`,
+          `SELECT source_id, amount, remaining, created_at FROM commissions WHERE remaining > 0
+           ORDER BY created_at ASC, source_id ASC`,
         )
         .all() as Record<string, unknown>[];
       return rows.map((row) => ({
         sourceId: String(row.source_id),
         amount: asBigInt(row.amount),
+        remaining: asBigInt(row.remaining),
         createdAt: Number(row.created_at),
       }));
     },
-    reserveCommission(sourceId: string, recipient: string): PayoutRecord {
+    reserveMature(opts: {
+      recipient: string;
+      minAmount: bigint;
+      nowMs: number;
+      maturityMs: number;
+    }): PayoutRecord | null {
       return tx(() => {
-        const commission = db
-          .query(`SELECT source_id, amount, created_at FROM commissions WHERE source_id = ?`)
-          .get(sourceId) as Record<string, unknown> | null;
-        if (!commission) throw new ServiceError(404, '找不到这笔佣金。');
-        const amount = asBigInt(commission.amount);
-        const existing = getPayoutBySource(sourceId);
-        if (existing) {
-          if (
-            existing.amount !== amount ||
-            existing.recipient.toLowerCase() !== address(recipient).toLowerCase()
-          ) {
-            throw new ServiceError(409, '同一来源的金额或收款地址不能更改。');
-          }
-          return existing;
+        const to = address(opts.recipient, '收款地址');
+        const rows = db
+          .query(
+            `SELECT source_id, remaining, created_at FROM commissions WHERE remaining > 0
+             ORDER BY created_at ASC, source_id ASC`,
+          )
+          .all() as Record<string, unknown>[];
+        const selected: { sourceId: string; take: bigint }[] = [];
+        let total = 0n;
+        for (const row of rows) {
+          if (opts.nowMs < Number(row.created_at) + opts.maturityMs) continue;
+          const remaining = asBigInt(row.remaining);
+          if (remaining <= 0n) continue;
+          selected.push({ sourceId: String(row.source_id), take: remaining });
+          total += remaining;
         }
-        const to = address(recipient, '收款地址');
+        if (total < opts.minAmount) return null;
         const partner = getPartner();
-        if (partner.available < amount) throw new ServiceError(409, '可用收益不足。');
-        const result = db.run(
+        if (partner.available < total) throw new ServiceError(409, '可用收益不足。');
+        const moved = db.run(
           `UPDATE partner SET available = available - ?, pending = pending + ?
            WHERE id = ? AND available >= ?`,
-          [amount.toString(), amount.toString(), partnerId, amount.toString()],
+          [total.toString(), total.toString(), partnerId, total.toString()],
         );
-        if (result.changes !== 1) throw new ServiceError(409, '可用收益不足。');
-        return insertPayout({
+        if (moved.changes !== 1) throw new ServiceError(409, '可用收益不足。');
+        const sourceId = `fixture:agg:${crypto.randomUUID()}`;
+        const payout = insertPayout({
           sourceId,
           recipient: to,
-          amount,
+          amount: total,
           alreadyFrozen: false,
-          createdAt: Number(commission.created_at),
         });
+        for (const part of selected) {
+          const upd = db.run(
+            `UPDATE commissions SET remaining = remaining - ? WHERE source_id = ? AND remaining >= ?`,
+            [part.take.toString(), part.sourceId, part.take.toString()],
+          );
+          if (upd.changes !== 1) throw new ServiceError(409, '可用收益不足。');
+          db.run(
+            `INSERT INTO allocations (payout_id, commission_source_id, amount) VALUES (?, ?, ?)`,
+            [payout.id, part.sourceId, part.take.toString()],
+          );
+        }
+        return getPayoutBySource(sourceId)!;
       });
+    },
+    listAllocations(payoutId: string): { commissionId: string; amount: bigint }[] {
+      const rows = db
+        .query(
+          `SELECT commission_source_id, amount FROM allocations WHERE payout_id = ? ORDER BY commission_source_id`,
+        )
+        .all(payoutId) as Record<string, unknown>[];
+      return rows.map((row) => ({
+        commissionId: String(row.commission_source_id),
+        amount: asBigInt(row.amount),
+      }));
     },
     importReservation(item: {
       sourceId: string;
@@ -318,6 +405,9 @@ export function createStore(opts: {
       amount: bigint;
       alreadyFrozen: boolean;
       createdAt?: number;
+      requestId?: string;
+      externalId?: number;
+      numericId?: number;
     }): PayoutRecord {
       if (item.amount <= 0n || item.amount > MAX_AMOUNT) {
         throw new ServiceError(400, '金额超过单笔上限。');
@@ -351,15 +441,15 @@ export function createStore(opts: {
           );
           if (result.changes !== 1) throw new ServiceError(409, '可用收益不足。');
         }
-        return insertPayout({ ...item, recipient: to });
+        return insertPayout({
+          ...item,
+          recipient: to,
+          requestId: item.requestId,
+          externalId: item.externalId ?? item.numericId,
+        });
       });
     },
-    getPayout(id: string): PayoutRecord | null {
-      const row = db.query(`SELECT * FROM payouts WHERE id = ?`).get(id) as
-        | Record<string, unknown>
-        | null;
-      return row ? mapPayout(row) : null;
-    },
+    getPayout,
     getPayoutBySource,
     listPayouts(): PayoutRecord[] {
       const rows = db
@@ -372,7 +462,9 @@ export function createStore(opts: {
     },
     getInFlight(): PayoutRecord | null {
       const rows = db
-        .query(`SELECT * FROM payouts WHERE status IN ('prepared', 'broadcast') ORDER BY created_at ASC`)
+        .query(
+          `SELECT * FROM payouts WHERE status IN ('prepared', 'broadcast') ORDER BY created_at ASC`,
+        )
         .all() as Record<string, unknown>[];
       return rows[0] ? mapPayout(rows[0]) : null;
     },
@@ -380,34 +472,24 @@ export function createStore(opts: {
       if (statuses.length === 0) return [];
       const placeholders = statuses.map(() => '?').join(',');
       const rows = db
-        .query(
-          `SELECT * FROM payouts WHERE status IN (${placeholders}) ORDER BY created_at ASC`,
-        )
+        .query(`SELECT * FROM payouts WHERE status IN (${placeholders}) ORDER BY created_at ASC`)
         .all(...statuses) as Record<string, unknown>[];
       return rows.map(mapPayout);
     },
-    nextReserved(minAmount: bigint, nowMs: number, maturityMs: number): PayoutRecord | null {
-      const rows = db
-        .query(`SELECT * FROM payouts WHERE status = 'reserved' ORDER BY created_at ASC`)
-        .all() as Record<string, unknown>[];
-      for (const row of rows) {
-        const payout = mapPayout(row);
-        if (payout.amount < minAmount) continue;
-        if (!payout.alreadyFrozen && nowMs < payout.createdAt + maturityMs) continue;
-        return payout;
-      }
-      return null;
+    nextReserved(): PayoutRecord | null {
+      const row = db
+        .query(`SELECT * FROM payouts WHERE status = 'reserved' ORDER BY created_at ASC LIMIT 1`)
+        .get() as Record<string, unknown> | null;
+      return row ? mapPayout(row) : null;
     },
     persistPrepared(id: string, rawTransaction: Hex, hash: Hex) {
       tx(() => {
-        const current = this.getPayout(id);
+        const current = getPayout(id);
         if (!current || current.status !== 'reserved') {
           throw new ServiceError(409, '这笔出款还不能签名。');
         }
         const inflight = db
-          .query(
-            `SELECT id FROM payouts WHERE status IN ('prepared', 'broadcast') AND id != ?`,
-          )
+          .query(`SELECT id FROM payouts WHERE status IN ('prepared', 'broadcast') AND id != ?`)
           .get(id) as { id: string } | null;
         if (inflight) throw new ServiceError(409, '已有未完成的出款交易。');
         const prepared = db.run(
@@ -423,7 +505,7 @@ export function createStore(opts: {
         [id],
       );
       if (result.changes !== 1) {
-        const current = this.getPayout(id);
+        const current = getPayout(id);
         if (current?.status !== 'broadcast') {
           throw new ServiceError(409, '这笔出款还不能广播。');
         }
@@ -446,7 +528,7 @@ export function createStore(opts: {
     },
     completePayout(id: string) {
       tx(() => {
-        const current = this.getPayout(id);
+        const current = getPayout(id);
         if (!current) throw new ServiceError(404, '找不到这笔出款。');
         if (current.status === 'completed') return;
         if (current.status !== 'confirmed') {
@@ -459,7 +541,12 @@ export function createStore(opts: {
         if (result.changes !== 1) return;
         const ledger = db.run(
           `UPDATE partner SET pending = pending - ?, paid = paid + ? WHERE id = ? AND pending >= ?`,
-          [current.amount.toString(), current.amount.toString(), partnerId, current.amount.toString()],
+          [
+            current.amount.toString(),
+            current.amount.toString(),
+            partnerId,
+            current.amount.toString(),
+          ],
         );
         if (ledger.changes !== 1) throw new ServiceError(500, '账本金额异常。');
       });
@@ -515,20 +602,12 @@ export function createStore(opts: {
       );
       if (result.changes !== 1) throw new ServiceError(409, '验证信息已使用，请重新发起。');
     },
-    getCursor(source: string): number {
-      const row = db.query(`SELECT after_id FROM cursors WHERE source = ?`).get(source) as
-        | { after_id: number }
-        | null;
-      return row ? Number(row.after_id) : 0;
-    },
-    setCursor(source: string, afterId: number) {
-      db.run(
-        `INSERT INTO cursors (source, after_id) VALUES (?, ?)
-         ON CONFLICT(source) DO UPDATE SET after_id = excluded.after_id`,
-        [source, afterId],
-      );
-    },
-    partnerPublic(balances?: { available: string; pending: string; paid: string; consumed: string }) {
+    partnerPublic(balances?: {
+      available: string;
+      pending: string;
+      paid: string;
+      consumed: string;
+    }) {
       const partner = getPartner();
       return {
         id: partner.id,

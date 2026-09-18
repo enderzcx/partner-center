@@ -21,6 +21,7 @@ export function createWorker(opts: {
   const now = opts.now ?? opts.store.now ?? Date.now;
   let timer: ReturnType<typeof setInterval> | undefined;
   let tail = Promise.resolve();
+  let sourceError: string | null = null;
 
   const payoutArg = (row: PayoutRecord) => ({
     id: row.id,
@@ -29,20 +30,20 @@ export function createWorker(opts: {
   });
 
   const importSources = async () => {
+    sourceError = null;
     try {
       const items = await opts.source.pull();
+      const pullError = opts.source.lastError?.() ?? null;
+      if (pullError) sourceError = pullError;
       for (const item of items) {
         try {
           opts.store.importReservation(item);
         } catch (err) {
-          if (err instanceof ServiceError && err.status === 409) continue;
-          const existing = opts.store.getPayoutBySource(item.sourceId);
-          if (existing) opts.store.setPayoutError(existing.id, sanitizeError(err));
+          sourceError = sanitizeError(err);
         }
       }
     } catch (err) {
-      /* source pull failure is retried next tick; do not mint payouts */
-      void err;
+      sourceError = sanitizeError(err);
     }
   };
 
@@ -82,15 +83,16 @@ export function createWorker(opts: {
     }
   };
 
-  const reconcile = async (paused: boolean) => {
+  const reconcile = async () => {
     for (const row of opts.store.listByStatus(['prepared', 'broadcast'])) {
-      if (row.status === 'prepared' && paused) continue;
-      if (row.rawTransaction && !paused) await broadcastRow(row);
-      const latest = opts.store.getPayout(row.id);
-      if (!latest?.txHash) continue;
-      const result = await inspectRow(latest);
-      if (result === 'pending' && latest.status === 'broadcast' && latest.rawTransaction && !paused) {
-        await broadcastRow(latest);
+      if (!row.txHash) continue;
+      const result = await inspectRow(row);
+      if (result === 'confirmed' || result === 'reverted') continue;
+      if (opts.store.isPaused()) continue;
+      if (result === 'pending' && row.rawTransaction) {
+        await broadcastRow(row);
+        const latest = opts.store.getPayout(row.id);
+        if (latest?.txHash && !opts.store.isPaused()) await inspectRow(latest);
       }
     }
   };
@@ -99,28 +101,26 @@ export function createWorker(opts: {
     if (paused || !shouldStart || opts.source.kind !== 'fixture') return;
     const partner = opts.store.getPartner();
     if (!partner.wallet) return;
-    const ts = now();
-    for (const commission of opts.store.listUnimportedCommissions()) {
-      if (commission.amount < opts.config.minAmount) continue;
-      if (ts < commission.createdAt + opts.config.maturityMs) continue;
-      try {
-        opts.store.reserveCommission(commission.sourceId, partner.wallet as Address);
-      } catch (err) {
-        if (err instanceof ServiceError && err.status === 409) break;
-        throw err;
-      }
+    try {
+      opts.store.reserveMature({
+        recipient: partner.wallet as Address,
+        minAmount: opts.config.minAmount,
+        nowMs: now(),
+        maturityMs: opts.config.maturityMs,
+      });
+    } catch (err) {
+      if (err instanceof ServiceError && err.status === 409) return;
+      throw err;
     }
   };
 
-  const prepareNext = async (paused: boolean, shouldStart: boolean) => {
-    if (paused || !shouldStart) return;
+  const prepareNext = async (paused: boolean, force: boolean) => {
+    if (paused) return;
     if (opts.store.getInFlight()) return;
-    const next = opts.store.nextReserved(
-      opts.config.minAmount,
-      now(),
-      opts.config.maturityMs,
-    );
+    const next = opts.store.nextReserved();
     if (!next) return;
+    const partner = opts.store.getPartner();
+    if (!next.alreadyFrozen && !force && !partner.autoSettle) return;
     try {
       const prepared = await opts.chain.prepare(payoutArg(next));
       opts.store.persistPrepared(next.id, prepared.rawTransaction, prepared.hash);
@@ -132,19 +132,19 @@ export function createWorker(opts: {
     const prepared = opts.store.getPayout(next.id);
     if (!prepared) return;
     await broadcastRow(prepared);
+    if (opts.store.isPaused()) return;
     const latest = opts.store.getPayout(next.id);
     if (latest?.txHash) await inspectRow(latest);
   };
 
   const tickUnlocked = async (force: boolean) => {
-    const paused = opts.store.isPaused();
     const partner = opts.store.getPartner();
-    const shouldStart = force || partner.autoSettle;
     await importSources();
-    await reconcile(paused);
+    await reconcile();
     await completeConfirmed();
-    reserveFixture(paused, shouldStart);
-    await prepareNext(paused, shouldStart);
+    const paused = opts.store.isPaused();
+    reserveFixture(paused, force || partner.autoSettle);
+    await prepareNext(paused, force);
     await completeConfirmed();
   };
 
@@ -159,6 +159,9 @@ export function createWorker(opts: {
 
   return {
     tick,
+    getSourceError() {
+      return sourceError;
+    },
     start() {
       if (timer) return;
       timer = setInterval(() => {
@@ -168,6 +171,9 @@ export function createWorker(opts: {
     stop() {
       if (timer) clearInterval(timer);
       timer = undefined;
+    },
+    drain() {
+      return tail;
     },
   };
 }

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { keccak256, toHex, type Hex } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
-import { CIRCLE_FUJI_USDC, runtimeConfig, type RuntimeConfig } from '../src/config.ts';
+import { CIRCLE_FUJI_USDC, runtimeConfig, runtimeFingerprint, type RuntimeConfig } from '../src/config.ts';
 import { createApp, type SettlementApp } from '../src/server.ts';
 import { createSource } from '../src/source.ts';
 import { createStore } from '../src/store.ts';
@@ -20,6 +20,7 @@ class MockChain implements Chain {
   prepareCalls = 0;
   broadcastCalls: Hex[] = [];
   inspectResult: 'pending' | 'confirmed' | 'reverted' = 'confirmed';
+  failBalances: string | null = null;
   nonce = 0n;
   async prepare(p: Payout): Promise<Prepared> {
     this.prepareCalls += 1;
@@ -35,6 +36,7 @@ class MockChain implements Chain {
     return this.inspectResult;
   }
   async balances() {
+    if (this.failBalances) throw new Error(this.failBalances);
     return { token: '42', gas: '99' };
   }
 }
@@ -53,8 +55,6 @@ function harness(extra: Partial<RuntimeConfig> = {}) {
   writeFileSync(join(publicDir, 'style.css'), 'body{margin:0}');
   let t = 1_700_000_000_000;
   const now = () => t;
-  const store = createStore({ path: join(dir, 'db.sqlite'), now });
-  closers.push(() => store.close());
   const chain = new MockChain();
   const config = runtimeConfig({
     port: 4311,
@@ -77,6 +77,12 @@ function harness(extra: Partial<RuntimeConfig> = {}) {
     partnerUserId: extra.partnerUserId ?? 1,
     ...extra,
   });
+  const store = createStore({
+    path: join(dir, 'db.sqlite'),
+    now,
+    fingerprint: runtimeFingerprint(config),
+  });
+  closers.push(() => store.close());
   const source = createSource(store, config);
   const worker = createWorker({ store, chain, source, config, now });
   const app = createApp({ store, worker, chain, source, config, publicDir, now });
@@ -304,6 +310,8 @@ test('demo wallet is local-only; beefapi rejects fixture generation and transfer
   expect(state.partner.available).toBe('');
   expect(state.partner.pending).toBe('');
   expect(state.partner.paid).toBe('');
+  expect(state.partner.consumed).toBe('');
+  expect(state.partner.available).not.toBe('0');
 });
 
 test('pause, transfer, oversized body, and admin run do not leak raw transactions', async () => {
@@ -351,4 +359,26 @@ test('pause, transfer, oversized body, and admin run do not leak raw transaction
     body: JSON.stringify({ amount: '1'.repeat(20_000) }),
   });
   expect(huge.status).toBe(413);
+});
+
+test('mutations require JSON content type; chain unreadiness is explicit', async () => {
+  const { app, chain } = harness();
+  const { sid } = await open(app);
+  const headers = new Headers();
+  headers.set('Host', host(app));
+  headers.set('Cookie', `sid=${sid}`);
+  headers.set('Origin', app.origin);
+  const missingType = await app.fetch(
+    new Request(`${app.origin}/api/admin/run`, { method: 'POST', headers, body: '{}' }),
+  );
+  expect(missingType.status).toBe(415);
+  chain.failBalances = 'https://user:secret@127.0.0.1/rpc?api_key=abcd';
+  const state = await (await req(app, '/api/state', { sid })).json();
+  expect(state.network.configured).toBe(false);
+  expect(state.network.error).toBeTruthy();
+  expect(JSON.stringify(state)).not.toContain('secret');
+  expect(JSON.stringify(state)).not.toContain('api_key');
+  expect(state.wallet.token).toBe('');
+  expect(state.wallet.gas).toBe('');
+  expect(state.wallet.token).not.toBe('0');
 });

@@ -28,6 +28,7 @@ export type SourceItem = {
   createdAt: number;
   alreadyFrozen: boolean;
   numericId?: number;
+  requestId?: string;
   chainId?: number;
   token?: Address;
 };
@@ -44,6 +45,7 @@ export interface Source {
   pull(): Promise<SourceItem[]>;
   complete(payout: PayoutRecord): Promise<void>;
   balances(): Promise<SourceBalances | null>;
+  lastError?(): string | null;
 }
 
 export type PayoutRecord = {
@@ -57,6 +59,8 @@ export type PayoutRecord = {
   createdAt: number;
   rawTransaction: Hex | null;
   alreadyFrozen: boolean;
+  requestId: string | null;
+  externalId: number | null;
 };
 
 export type PublicPayout = {
@@ -88,6 +92,7 @@ export type AppState = {
     explorer: string;
     configured: boolean;
     token: string;
+    error?: string;
   };
   paused: boolean;
   wallet: { token: string; gas: string };
@@ -104,6 +109,7 @@ export type AppState = {
   payouts: PublicPayout[];
   source: SourceKind;
   minAmount: string;
+  sourceError?: string;
 };
 
 export class ServiceError extends Error {
@@ -116,26 +122,11 @@ export class ServiceError extends Error {
   }
 }
 
+export const PROVIDER_FAILURE = '结算依赖暂时不可用。';
+
 export function sanitizeError(err: unknown): string {
-  const raw =
-    err instanceof ServiceError
-      ? err.message
-      : err instanceof Error
-        ? err.message
-        : '操作失败。';
-  let msg = raw
-    .replace(/Bearer\s+\S+/gi, '[已隐藏]')
-    .replace(
-      /SETTLEMENT_PRIVATE_KEY|SETTLEMENT_TEST_TOKEN|privateKey|Authorization/gi,
-      '[已隐藏]',
-    )
-    .replace(/0x[0-9a-fA-F]{80,}/g, '[已隐藏]')
-    .replace(/[A-Za-z0-9+/]{40,}={0,2}/g, (m) =>
-      m.length > 80 ? '[已隐藏]' : m,
-    );
-  msg = msg.replace(/\s+/g, ' ').trim();
-  if (msg.length > 180) msg = `${msg.slice(0, 177)}...`;
-  return msg || '操作失败。';
+  if (err instanceof ServiceError) return err.message;
+  return PROVIDER_FAILURE;
 }
 
 export function toPublicPayout(row: PayoutRecord): PublicPayout {

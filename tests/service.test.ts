@@ -4,7 +4,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { keccak256, toHex, type Hex } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
-import { CIRCLE_FUJI_USDC, loadConfig, runtimeConfig, type RuntimeConfig } from '../src/config.ts';
+import {
+  CIRCLE_FUJI_USDC,
+  loadConfig,
+  runtimeConfig,
+  runtimeFingerprint,
+  type RuntimeConfig,
+} from '../src/config.ts';
 import { acquireProcessLock } from '../src/lock.ts';
 import { createSource } from '../src/source.ts';
 import { createStore, type Store } from '../src/store.ts';
@@ -13,7 +19,9 @@ import {
   type Payout,
   type Prepared,
   type Source,
+  PROVIDER_FAILURE,
   ServiceError,
+  sanitizeError,
 } from '../src/types.ts';
 import { createWorker } from '../src/worker.ts';
 
@@ -93,10 +101,14 @@ function boot(extra: Partial<RuntimeConfig> = {}, sourceFactory?: (store: Store,
   const dir = tmp();
   let t = 1_700_000_000_000;
   const now = () => t;
-  const store = createStore({ path: join(dir, 'db.sqlite'), now });
+  const cfg = config(dir, extra);
+  const store = createStore({
+    path: join(dir, 'db.sqlite'),
+    now,
+    fingerprint: runtimeFingerprint(cfg),
+  });
   closers.push(() => store.close());
   const chain = new MockChain();
-  const cfg = config(dir, extra);
   const source = sourceFactory ? sourceFactory(store, cfg) : createSource(store, cfg);
   const worker = createWorker({ store, chain, source, config: cfg, now });
   return {
@@ -123,10 +135,13 @@ describe('fixture settlement', () => {
     await worker.tick({ force: true });
     const payouts = store.listPayouts();
     expect(payouts).toHaveLength(1);
-    expect(payouts[0].sourceId).toBe(sourceId);
+    expect(payouts[0].sourceId.startsWith('fixture:agg:')).toBe(true);
     expect(payouts[0].status).toBe('completed');
     expect(payouts[0].recipient).toBe(RECIPIENT);
-    expect(payouts[0].id).toBe(keccak256(toHex(`demo-merchant/${sourceId}`)));
+    expect(payouts[0].id).toBe(keccak256(toHex(`demo-merchant/${payouts[0].sourceId}`)));
+    expect(store.listAllocations(payouts[0].id)).toEqual([
+      { commissionId: sourceId, amount: 10_000_000n },
+    ]);
     expect(payouts[0].rawTransaction).toBe(chain.broadcastCalls[0]);
     expect(chain.prepareCalls).toBe(1);
     expect(chain.broadcastCalls).toHaveLength(1);
@@ -167,33 +182,41 @@ describe('fixture settlement', () => {
   test('duplicate import returns same id; amount or address change is rejected', () => {
     const { store } = boot();
     const first = store.importReservation({
-      sourceId: 'beefapi:9',
+      sourceId: 'beefapi:req-9:9',
       recipient: RECIPIENT,
       amount: 2_000_000n,
       alreadyFrozen: true,
+      requestId: 'req-9',
+      externalId: 9,
     });
     const again = store.importReservation({
-      sourceId: 'beefapi:9',
+      sourceId: 'beefapi:req-9:9',
       recipient: RECIPIENT,
       amount: 2_000_000n,
       alreadyFrozen: true,
+      requestId: 'req-9',
+      externalId: 9,
     });
     expect(again.id).toBe(first.id);
     expect(store.listPayouts()).toHaveLength(1);
     expect(() =>
       store.importReservation({
-        sourceId: 'beefapi:9',
+        sourceId: 'beefapi:req-9:9',
         recipient: OTHER,
         amount: 2_000_000n,
         alreadyFrozen: true,
+        requestId: 'req-9',
+        externalId: 9,
       }),
     ).toThrow(/不能更改/);
     expect(() =>
       store.importReservation({
-        sourceId: 'beefapi:9',
+        sourceId: 'beefapi:req-9:9',
         recipient: RECIPIENT,
         amount: 3_000_000n,
         alreadyFrozen: true,
+        requestId: 'req-9',
+        externalId: 9,
       }),
     ).toThrow(/不能更改/);
   });
@@ -201,21 +224,28 @@ describe('fixture settlement', () => {
   test('competing transfer and reserve consume available once', async () => {
     const dir = tmp();
     const path = join(dir, 'db.sqlite');
-    const a = createStore({ path });
-    const b = createStore({ path });
+    const fp = runtimeFingerprint(config(dir));
+    const a = createStore({ path, fingerprint: fp });
+    const b = createStore({ path, fingerprint: fp });
     closers.push(() => a.close(), () => b.close());
     a.setWallet(RECIPIENT);
-    const sourceId = a.addCommission(10_000_000n);
+    a.addCommission(10_000_000n);
     const results = await Promise.allSettled([
       Promise.resolve().then(() => a.transfer(10_000_000n)),
-      Promise.resolve().then(() => b.reserveCommission(sourceId, RECIPIENT)),
+      Promise.resolve().then(() =>
+        b.reserveMature({
+          recipient: RECIPIENT,
+          minAmount: 1_000_000n,
+          nowMs: Date.now(),
+          maturityMs: 0,
+        }),
+      ),
     ]);
-    const ok = results.filter((row) => row.status === 'fulfilled').length;
-    expect(ok).toBe(1);
     const partner = a.getPartner();
     expect(partner.available).toBe(0n);
     expect(partner.pending + partner.consumed).toBe(10_000_000n);
     expect(partner.pending === 10_000_000n || partner.consumed === 10_000_000n).toBe(true);
+    expect(Number(partner.pending > 0n) + Number(partner.consumed > 0n)).toBe(1);
   });
 
   test('signed-before-broadcast crash retries the same raw transaction', async () => {
@@ -239,11 +269,13 @@ describe('fixture settlement', () => {
       source: createSource(store, config),
       config,
     });
-    chain.inspectResult = 'confirmed';
+    chain.inspectResult = 'pending';
     await worker2.tick({ force: true });
     expect(chain.prepareCalls).toBe(1);
     expect(raw).toBeTruthy();
     expect(chain.broadcastCalls).toEqual([raw as Hex]);
+    chain.inspectResult = 'confirmed';
+    await worker2.tick();
     expect(store.listPayouts()[0].txHash).toBe(hash);
     expect(store.listPayouts()[0].status).toBe('completed');
   });
@@ -284,7 +316,7 @@ describe('fixture settlement', () => {
     chain.inspectResult = 'confirmed';
     await worker.tick({ force: true });
     expect(store.listPayouts()[0].status).toBe('completed');
-    expect(store.listUnimportedCommissions()).toHaveLength(1);
+    expect(store.listRemainingCommissions()).toHaveLength(1);
     expect(chain.prepareCalls).toBe(1);
     store.setPaused(false);
     await worker.tick({ force: true });
@@ -299,7 +331,8 @@ describe('fixture settlement', () => {
     chain.failPrepare = 'insufficient gas';
     await worker.tick({ force: true });
     expect(store.listPayouts()[0].status).toBe('reserved');
-    expect(store.listPayouts()[0].error).toContain('insufficient gas');
+    expect(store.listPayouts()[0].error).toBe(PROVIDER_FAILURE);
+    expect(store.listPayouts()[0].error).not.toContain('insufficient gas');
     expect(store.listPayouts()[0].rawTransaction).toBeNull();
     chain.failPrepare = null;
     chain.inspectResult = 'confirmed';
@@ -410,16 +443,27 @@ describe('beefapi source', () => {
     const server = Bun.serve({
       hostname: '127.0.0.1',
       port: 0,
-      fetch(req) {
+      async fetch(req) {
         const url = new URL(req.url);
         if (url.pathname === '/api/settlement-test/reservations' && req.method === 'GET') {
           return Response.json({ success: true, message: '', data: reservations });
         }
         if (url.pathname === '/api/settlement-test/reservations/11/complete') {
           completed += 1;
+          const body = (await req.json()) as { transaction_hash: string };
           return Response.json({
             success: true,
-            data: { ...reservations[0], status: 'completed' },
+            data: {
+              ...reservations[0],
+              id: 11,
+              request_id: 'r1',
+              status: 'completed',
+              transaction_hash: body.transaction_hash,
+              chain_id: 31337,
+              token: TOKEN,
+              recipient: RECIPIENT,
+              amount_usdc: '2500000',
+            },
           });
         }
         if (url.pathname === '/api/settlement-test/partners/7') {
@@ -438,14 +482,14 @@ describe('beefapi source', () => {
       beefapiToken: 't'.repeat(32),
       partnerUserId: 7,
     });
-    ctx.store.setWallet(OTHER);
-    ctx.store.setAutoSettle(true);
     ctx.chain.inspectResult = 'confirmed';
-    await ctx.worker.tick({ force: true });
+    await ctx.worker.tick();
     expect(ctx.store.listPayouts()).toHaveLength(1);
-    expect(ctx.store.listPayouts()[0].sourceId).toBe('beefapi:11');
+    expect(ctx.store.listPayouts()[0].sourceId).toBe('beefapi:r1:11');
     expect(ctx.store.listPayouts()[0].recipient).toBe(RECIPIENT);
     expect(ctx.store.listPayouts()[0].status).toBe('completed');
+    expect(ctx.store.getPartner().autoSettle).toBe(false);
+    expect(ctx.store.getPartner().wallet).toBe('');
     expect(completed).toBe(1);
     const balances = await ctx.source.balances();
     expect(balances?.available).toBe('0');
@@ -471,33 +515,43 @@ describe('beefapi source', () => {
 });
 
 describe('process lock and config', () => {
-  test('second process fails; stale dead pid can be recovered', () => {
+  test('child process exclusive lock collides and recovers after SIGKILL', async () => {
     const dir = tmp();
     const path = join(dir, 'settlement.lock');
-    const first = acquireProcessLock(path);
-    expect(() => acquireProcessLock(path)).toThrow(/持有/);
-    first.release();
-    writeFileSync(
-      path,
-      JSON.stringify({
-        pid: 999999,
-        token: 'old',
-        heartbeat: Date.now() - 120_000,
-        startedAt: 1,
-      }),
-    );
-    const recovered = acquireProcessLock(path, { staleMs: 90_000 });
+    const child = Bun.spawn({
+      cmd: ['bun', join(import.meta.dir, 'lock-child.ts'), path, '20000'],
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    closers.push(() => {
+      try {
+        child.kill();
+      } catch {
+        /* ignore */
+      }
+    });
+    const reader = child.stdout.getReader();
+    const decoder = new TextDecoder();
+    let out = '';
+    while (!out.includes('HELD')) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      out += decoder.decode(value);
+    }
+    expect(out).toContain('HELD');
+    expect(() => acquireProcessLock(path)).toThrow(/占用/);
+    child.kill(9);
+    await child.exited;
+    const recovered = acquireProcessLock(path);
     recovered.release();
-    writeFileSync(
-      path,
-      JSON.stringify({
-        pid: process.pid,
-        token: 'live',
-        heartbeat: Date.now() - 120_000,
-        startedAt: 1,
-      }),
-    );
-    expect(() => acquireProcessLock(path, { staleMs: 1_000 })).toThrow(/仍在/);
+  });
+
+  test('corrupt lock file fails closed', () => {
+    const dir = tmp();
+    const path = join(dir, 'settlement.lock');
+    writeFileSync(path, 'not-a-sqlite-database');
+    expect(() => acquireProcessLock(path)).toThrow(/无法使用/);
+    expect(() => acquireProcessLock(path)).toThrow(/无法使用/);
   });
 
   test('loadConfig fails cleanly without chain and pins Fuji USDC', () => {
@@ -596,5 +650,152 @@ describe('process lock and config', () => {
       signature,
     });
     expect(recovered.toLowerCase()).toBe(account.address.toLowerCase());
+  });
+});
+
+describe('repair regressions', () => {
+  test('aggregate mature commissions settle below per-item threshold', async () => {
+    const { store, chain, worker } = boot();
+    store.setWallet(RECIPIENT);
+    store.setAutoSettle(true);
+    store.addCommission(600_000n);
+    store.addCommission(600_000n);
+    expect(store.getPartner().available).toBe(1_200_000n);
+    chain.inspectResult = 'confirmed';
+    await worker.tick();
+    expect(store.listPayouts()).toHaveLength(1);
+    expect(store.listPayouts()[0].amount).toBe(1_200_000n);
+    expect(store.listPayouts()[0].status).toBe('completed');
+    expect(store.listAllocations(store.listPayouts()[0].id)).toHaveLength(2);
+  });
+
+  test('partial consumption leaves remaining mature funds settleable', async () => {
+    const { store, chain, worker } = boot();
+    store.setWallet(RECIPIENT);
+    store.setAutoSettle(true);
+    const sourceId = store.addCommission(10_000_000n);
+    store.transfer(1_000_000n);
+    expect(store.getPartner().available).toBe(9_000_000n);
+    expect(store.getPartner().consumed).toBe(1_000_000n);
+    expect(store.listRemainingCommissions()[0].remaining).toBe(9_000_000n);
+    chain.inspectResult = 'confirmed';
+    await worker.tick();
+    expect(store.listPayouts()).toHaveLength(1);
+    expect(store.listPayouts()[0].amount).toBe(9_000_000n);
+    expect(store.listPayouts()[0].status).toBe('completed');
+    expect(store.listAllocations(store.listPayouts()[0].id)).toEqual([
+      { commissionId: sourceId, amount: 9_000_000n },
+    ]);
+  });
+
+  test('callback 404 keeps confirmed and retries source only', async () => {
+    const reservations = [
+      {
+        id: 11,
+        request_id: 'r1',
+        user_id: 7,
+        recipient: RECIPIENT,
+        amount_usdc: '2500000',
+        status: 'reserved',
+        chain_id: 31337,
+        token: TOKEN,
+      },
+    ];
+    let completeMode: '404' | 'ok' = '404';
+    let completes = 0;
+    const afterIds: string[] = [];
+    const server = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      async fetch(req) {
+        const url = new URL(req.url);
+        if (url.pathname === '/api/settlement-test/reservations' && req.method === 'GET') {
+          afterIds.push(url.searchParams.get('after_id') ?? '');
+          return Response.json({ success: true, data: reservations });
+        }
+        if (url.pathname === '/api/settlement-test/reservations/11/complete') {
+          completes += 1;
+          if (completeMode === '404') return new Response('missing', { status: 404 });
+          const body = (await req.json()) as { transaction_hash: string };
+          return Response.json({
+            success: true,
+            data: {
+              ...reservations[0],
+              status: 'completed',
+              transaction_hash: body.transaction_hash,
+              amount_usdc: '2500000',
+            },
+          });
+        }
+        return new Response('no', { status: 404 });
+      },
+    });
+    closers.push(() => server.stop(true));
+    const ctx = boot({
+      source: 'beefapi',
+      beefapiBaseUrl: `http://127.0.0.1:${server.port}`,
+      beefapiToken: 't'.repeat(32),
+      partnerUserId: 7,
+    });
+    ctx.chain.inspectResult = 'confirmed';
+    await ctx.worker.tick();
+    expect(ctx.store.listPayouts()[0].status).toBe('confirmed');
+    expect(ctx.chain.prepareCalls).toBe(1);
+    expect(completes).toBeGreaterThan(0);
+    const afterFirst = completes;
+    await ctx.worker.tick();
+    expect(ctx.store.listPayouts()[0].status).toBe('confirmed');
+    expect(ctx.chain.prepareCalls).toBe(1);
+    expect(completes).toBeGreaterThan(afterFirst);
+    completeMode = 'ok';
+    await ctx.worker.tick();
+    expect(ctx.store.listPayouts()[0].status).toBe('completed');
+    expect(ctx.chain.prepareCalls).toBe(1);
+    expect(ctx.chain.broadcastCalls).toHaveLength(1);
+    expect(afterIds.every((id) => id === '0')).toBe(true);
+  });
+
+  test('paused prepared payout is inspected and finished without rebroadcast', async () => {
+    const { store, chain, worker } = boot();
+    store.setWallet(RECIPIENT);
+    store.addCommission(10_000_000n);
+    chain.failBroadcast = 'rpc timeout';
+    chain.inspectResult = 'pending';
+    await worker.tick({ force: true });
+    expect(store.listPayouts()[0].status).toBe('prepared');
+    expect(chain.broadcastCalls).toHaveLength(0);
+    store.setPaused(true);
+    chain.failBroadcast = null;
+    chain.inspectResult = 'confirmed';
+    await worker.tick({ force: true });
+    expect(store.listPayouts()[0].status).toBe('completed');
+    expect(chain.broadcastCalls).toHaveLength(0);
+    expect(chain.prepareCalls).toBe(1);
+  });
+
+  test('runtime fingerprint refuses a different binding on the same ledger', () => {
+    const dir = tmp();
+    const path = join(dir, 'db.sqlite');
+    const cfg = config(dir);
+    const a = createStore({ path, fingerprint: runtimeFingerprint(cfg) });
+    a.close();
+    const other = runtimeConfig({
+      ...cfg,
+      chain: { ...cfg.chain, contract: OTHER },
+    });
+    expect(() => createStore({ path, fingerprint: runtimeFingerprint(other) })).toThrow(
+      /拒绝复用/,
+    );
+  });
+
+  test('sanitizeError copies ServiceError and hides keys, tokens, and credential URLs', () => {
+    expect(sanitizeError(new ServiceError(400, '可用收益不足。'))).toBe('可用收益不足。');
+    const key = `0x${'11'.repeat(32)}`;
+    expect(sanitizeError(new Error(`private key ${key}`))).toBe(PROVIDER_FAILURE);
+    expect(sanitizeError(new Error(`Bearer ${'s'.repeat(40)}`))).toBe(PROVIDER_FAILURE);
+    expect(
+      sanitizeError(new Error('https://user:secret@127.0.0.1:8545/path?api_key=abcd')),
+    ).toBe(PROVIDER_FAILURE);
+    expect(PROVIDER_FAILURE).not.toContain(key);
   });
 });

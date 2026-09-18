@@ -20,6 +20,7 @@ import {
   networkMeta,
   originOf,
   runtimeConfig,
+  runtimeFingerprint,
   type RuntimeConfig,
 } from './config.ts';
 import { acquireProcessLock } from './lock.ts';
@@ -42,6 +43,7 @@ export {
   createSource,
   loadConfig,
   runtimeConfig,
+  runtimeFingerprint,
   acquireProcessLock,
 };
 
@@ -77,19 +79,44 @@ function fail(err: unknown): Response {
 }
 
 async function readJson(req: Request): Promise<Record<string, unknown>> {
-  const length = Number(req.headers.get('content-length') ?? '0');
-  if (Number.isFinite(length) && length > BODY_LIMIT) {
-    throw new ServiceError(413, '请求内容过大。');
-  }
   const type = req.headers.get('content-type') ?? '';
-  if (type && !type.toLowerCase().startsWith('application/json')) {
+  if (!type.toLowerCase().startsWith('application/json')) {
     throw new ServiceError(415, '请使用 JSON 提交。');
   }
-  const buf = await req.arrayBuffer();
-  if (buf.byteLength > BODY_LIMIT) throw new ServiceError(413, '请求内容过大。');
-  if (buf.byteLength === 0) return {};
+  const lengthHeader = req.headers.get('content-length');
+  if (lengthHeader != null && lengthHeader !== '') {
+    const length = Number(lengthHeader);
+    if (!Number.isFinite(length) || length < 0 || length > BODY_LIMIT) {
+      throw new ServiceError(413, '请求内容过大。');
+    }
+  }
+  if (!req.body) return {};
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    received += value.byteLength;
+    if (received > BODY_LIMIT) {
+      try {
+        await reader.cancel();
+      } catch {
+        /* ignore */
+      }
+      throw new ServiceError(413, '请求内容过大。');
+    }
+    chunks.push(value);
+  }
+  if (received === 0) return {};
+  const bytes = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
   try {
-    const parsed = JSON.parse(new TextDecoder().decode(buf)) as unknown;
+    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       throw new ServiceError(400, '请求内容无效。');
     }
@@ -166,25 +193,34 @@ export function createApp(opts: {
 
   const state = async (): Promise<AppState> => {
     let wallet = { token: '', gas: '' };
+    let configured = true;
+    let networkError: string | undefined;
     try {
       wallet = await opts.chain.balances();
-    } catch {
+    } catch (err) {
       wallet = { token: '', gas: '' };
+      configured = false;
+      networkError = sanitizeError(err);
     }
     const sourceBalances = await opts.source.balances();
     const partner = opts.store.partnerPublic(
       opts.source.kind === 'beefapi'
-        ? sourceBalances ?? { available: '', pending: '', paid: '', consumed: '0' }
+        ? sourceBalances ?? { available: '', pending: '', paid: '', consumed: '' }
         : sourceBalances ?? undefined,
     );
+    const sourceError = opts.worker.getSourceError() ?? undefined;
     return {
-      network: networkMeta(opts.config.chain.chainId, opts.config.chain.token),
+      network: networkMeta(opts.config.chain.chainId, opts.config.chain.token, {
+        configured,
+        error: networkError,
+      }),
       paused: opts.store.isPaused(),
       wallet,
       partner,
       payouts: opts.store.publicPayouts(),
       source: opts.source.kind,
       minAmount: opts.config.minAmount.toString(),
+      ...(sourceError ? { sourceError } : {}),
     };
   };
 
@@ -195,8 +231,7 @@ export function createApp(opts: {
         return json(405, { error: '不支持的请求方法。' });
       }
       if (req.method === 'GET' && STATIC_FILES[url.pathname]) {
-        const host = requireHost(req);
-        void host;
+        requireHost(req);
         const spec = STATIC_FILES[url.pathname];
         let headers: Record<string, string> = { ...securityHeaders(), 'Content-Type': spec.type };
         const cookies = parseCookies(req.headers.get('cookie'));
@@ -294,7 +329,8 @@ export function createApp(opts: {
         }
         case '/api/admin/run': {
           await opts.worker.tick({ force: true });
-          return json(200, { ok: true });
+          const sourceError = opts.worker.getSourceError();
+          return json(200, sourceError ? { ok: true, sourceError } : { ok: true });
         }
         default:
           return json(404, { error: '找不到该接口。' });
@@ -311,44 +347,60 @@ export async function startFromEnv(env = process.env) {
   const config = loadConfig({ env });
   assertLoopbackBind(config.host);
   const lock = acquireProcessLock(config.lockPath);
-  const store = createStore({
-    path: config.dbPath,
-    merchantId: config.merchantId,
-    partnerId: config.partnerId,
-    partnerName: config.partnerName,
-  });
-  const chain = await loadEvmChain(config);
-  const source = createSource(store, config);
-  const worker = createWorker({ store, chain, source, config });
-  const original = worker.tick;
-  worker.tick = (input) => {
-    lock.heartbeat();
-    return original(input);
-  };
-  const app = createApp({ store, worker, chain, source, config });
-  lock.heartbeat();
-  worker.start();
-  void worker.tick();
-  const server = Bun.serve({
-    hostname: config.host,
-    port: config.port,
-    fetch: app.fetch,
-  });
-  const shutdown = () => {
-    worker.stop();
+  let store: Store | undefined;
+  try {
+    const fingerprint = runtimeFingerprint(config);
+    store = createStore({
+      path: config.dbPath,
+      merchantId: config.merchantId,
+      partnerId: config.partnerId,
+      partnerName: config.partnerName,
+      fingerprint,
+    });
+    const chain = await loadEvmChain(config);
+    try {
+      await chain.balances();
+    } catch {
+      throw new Error('结算链未就绪，拒绝启动。');
+    }
+    const source = createSource(store, config);
+    const worker = createWorker({ store, chain, source, config });
+    const app = createApp({ store, worker, chain, source, config });
+    worker.start();
+    void worker.tick();
+    const server = Bun.serve({
+      hostname: config.host,
+      port: config.port,
+      fetch: app.fetch,
+    });
+    const shutdown = async () => {
+      worker.stop();
+      await worker.drain();
+      server.stop(true);
+      store?.close();
+      lock.release();
+    };
+    process.on('SIGINT', () => {
+      void shutdown().then(() => process.exit(0));
+    });
+    process.on('SIGTERM', () => {
+      void shutdown().then(() => process.exit(0));
+    });
+    return { app, server, lock, shutdown };
+  } catch (err) {
+    try {
+      store?.close();
+    } catch {
+      /* ignore */
+    }
     lock.release();
-    server.stop(true);
-    store.close();
-  };
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
-  return { app, server, lock, shutdown };
+    throw err;
+  }
 }
 
 if (import.meta.main) {
   startFromEnv().catch((err) => {
     console.error(sanitizeError(err));
-    console.error(err instanceof Error ? err.message : err);
     process.exit(1);
   });
 }
