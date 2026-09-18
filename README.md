@@ -34,6 +34,12 @@ BeefAPI 适配代码位于独立工作树 `codex/fuji-settlement`。它增加默
 - `POST /api/settlement-test/reservations/:id/complete` 链上核验后完成原账本。
 - `GET /api/settlement-test/partners/:id` 读取原账本余额。
 
+测试订单演示默认关闭。仅当来源为 beefapi 且双方都显式打开时可用：来源 `SETTLEMENT_TEST_ORDER_MODE=true`，本应用 `SETTLEMENT_ORDER_DEMO=true`。此时可创建默认 10 USD 测试订单，页面用「模拟支付成功」确认，不会向买家扣款。佣金金额以来源为准，收款地址在首次确认时固定。出款仍由定时器执行，不在确认接口里上链。
+
+- `GET /api/settlement-test/orders`
+- `POST /api/settlement-test/orders`
+- `POST /api/settlement-test/orders/:request_id/pay`
+
 独立服务只接受回环地址上的 BeefAPI 测试环境。普通生产提现和钱包入口保持既有行为。适配鉴权 token 由环境配置，不出现在网页中，不写入仓库。
 
 ## Fuji 联调所需

@@ -145,6 +145,8 @@ test('static allowlist, CSP, session cookie, and loopback host checks', async ()
   expect(state.status).toBe(200);
   const body = await state.json();
   expect(body.source).toBe('fixture');
+  expect(body.orderDemo).toBe(false);
+  expect(body.orders).toBeUndefined();
   expect(body.minAmount).toBe('1000000');
   expect(body.wallet.token).toBe('42');
   expect(JSON.stringify(body)).not.toContain('rawTransaction');

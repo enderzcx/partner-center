@@ -21,6 +21,28 @@ export interface Chain {
 
 export type SourceKind = 'fixture' | 'beefapi';
 
+export type SourceOrderStatus = 'pending' | 'paid';
+
+export type SourceOrder = {
+  requestId: string;
+  tradeNo: string;
+  paymentAmountMinor: string;
+  commissionRate: string;
+  commissionUsdc: string;
+  status: SourceOrderStatus;
+};
+
+export type PublicOrder = {
+  requestId: string;
+  tradeNo: string;
+  paymentAmountMinor: string;
+  commissionRate: string;
+  commissionUsdc: string;
+  status: SourceOrderStatus;
+  recipient: string;
+  error: string | null;
+};
+
 export type SourceItem = {
   sourceId: string;
   recipient: Address;
@@ -64,6 +86,17 @@ export interface Source {
   complete(payout: PayoutRecord): Promise<void>;
   balances(): Promise<SourceBalances | null>;
   lastError?(): string | null;
+  listOrders?(): Promise<SourceOrder[]>;
+  createOrder?(input: {
+    requestId: string;
+    paymentAmountMinor: string;
+  }): Promise<SourceOrder>;
+  payOrder?(requestId: string): Promise<SourceOrder>;
+  reserveFrozen?(input: {
+    requestId: string;
+    recipient: Address;
+    amountUsdc: string;
+  }): Promise<SourceItem>;
 }
 
 export type PayoutRecord = {
@@ -128,6 +161,8 @@ export type AppState = {
   source: SourceKind;
   minAmount: string;
   commission: CommissionState;
+  orderDemo: boolean;
+  orders?: PublicOrder[];
   sourceError?: string;
 };
 

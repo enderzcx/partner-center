@@ -148,6 +148,13 @@ export function createStore(opts: {
       expires_at INTEGER NOT NULL,
       consumed INTEGER NOT NULL DEFAULT 0
     );
+    CREATE TABLE IF NOT EXISTS order_snapshots (
+      request_id TEXT PRIMARY KEY,
+      recipient TEXT NOT NULL,
+      reservation_request_id TEXT NOT NULL UNIQUE,
+      created_at INTEGER NOT NULL,
+      error TEXT
+    );
   `);
   db.run(
     `INSERT OR IGNORE INTO partner (id, name, wallet, auto_settle, available, pending, paid, consumed)
@@ -651,6 +658,65 @@ export function createStore(opts: {
       );
       if (result.changes !== 1)
         throw new ServiceError(409, "验证信息已使用，请重新发起。");
+    },
+    getOrderSnapshot(requestId: string) {
+      const row = db
+        .query(
+          `SELECT request_id, recipient, reservation_request_id, created_at, error FROM order_snapshots WHERE request_id = ?`,
+        )
+        .get(requestId) as Record<string, unknown> | null;
+      if (!row) return null;
+      return {
+        requestId: String(row.request_id),
+        recipient: String(row.recipient) as Address,
+        reservationRequestId: String(row.reservation_request_id),
+        createdAt: Number(row.created_at),
+        error: row.error ? String(row.error) : null,
+      };
+    },
+    listOrderSnapshots() {
+      const rows = db
+        .query(
+          `SELECT request_id, recipient, reservation_request_id, created_at, error FROM order_snapshots ORDER BY created_at ASC`,
+        )
+        .all() as Record<string, unknown>[];
+      return rows.map((row) => ({
+        requestId: String(row.request_id),
+        recipient: String(row.recipient) as Address,
+        reservationRequestId: String(row.reservation_request_id),
+        createdAt: Number(row.created_at),
+        error: row.error ? String(row.error) : null,
+      }));
+    },
+    snapshotOrderRecipient(
+      requestId: string,
+      recipient: string,
+      reservationRequestId: string,
+    ): Address {
+      const to = address(recipient, "收款地址");
+      return tx(() => {
+        const existing = db
+          .query(
+            `SELECT recipient FROM order_snapshots WHERE request_id = ?`,
+          )
+          .get(requestId) as { recipient: string } | null;
+        if (existing) return address(existing.recipient, "收款地址");
+        db.run(
+          `INSERT INTO order_snapshots (request_id, recipient, reservation_request_id, created_at, error)
+           VALUES (?, ?, ?, ?, NULL)`,
+          [requestId, to, reservationRequestId, now()],
+        );
+        return to;
+      });
+    },
+    setOrderError(requestId: string, error: string | null) {
+      const result = db.run(
+        `UPDATE order_snapshots SET error = ? WHERE request_id = ?`,
+        [error, requestId],
+      );
+      if (result.changes !== 1) {
+        throw new ServiceError(404, "找不到该订单。");
+      }
     },
     partnerPublic(balances?: {
       available: string;

@@ -138,6 +138,26 @@
           </p>
           <section
             class="operation-panel"
+            id="order-panel"
+            aria-labelledby="order-title"
+            hidden
+          >
+            <div class="section-top">
+              <h2 id="order-title">测试订单</h2>
+              <span id="order-count" class="subtle"></span>
+            </div>
+            <p class="subtle" id="order-intro">
+              默认创建 10 USD 测试订单。
+            </p>
+            <div class="actions">
+              <button class="button primary" id="create-order" type="button">
+                创建 10 USD 测试订单
+              </button>
+            </div>
+            <div id="order-list"></div>
+          </section>
+          <section
+            class="operation-panel"
             id="merchant-panel"
             aria-labelledby="control-title"
           >

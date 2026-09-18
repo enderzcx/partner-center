@@ -34,6 +34,15 @@ function units(value, digits = 6, places = 2) {
     return "暂无数据";
   }
 }
+function usdMinor(value) {
+  if (value === undefined || value === null || String(value).trim() === "")
+    return "暂无数据";
+  if (!/^(10000|[1-9][0-9]{0,3})$/.test(String(value))) return "暂无数据";
+  const cents = Number(value);
+  const whole = Math.trunc(cents / 100);
+  const frac = String(cents % 100).padStart(2, "0");
+  return whole.toLocaleString("en-US") + "." + frac;
+}
 function precise(value) {
   if (value === undefined || value === null || String(value).trim() === "")
     return "暂无数据";
@@ -190,16 +199,88 @@ async function action(button, task, message) {
     if (state) renderControls();
   }
 }
+function orderDemoOn() {
+  return !!(state && state.orderDemo);
+}
+function renderOrders() {
+  const panel = $("order-panel");
+  const demo = orderDemoOn();
+  panel.hidden = !demo || role !== "merchant";
+  if (!demo) return;
+  const orders = Array.isArray(state.orders) ? state.orders : [];
+  $("order-count").textContent = orders.length + " 笔";
+  if (!orders.length) {
+    $("order-list").innerHTML =
+      '<div class="empty"><strong>还没有测试订单</strong>创建后可确认支付并查看佣金。</div>';
+    return;
+  }
+  $("order-list").innerHTML = orders
+    .map((order) => {
+      const pending = order.status !== "paid";
+      const percent = formatCommissionPercent(order.commissionRate);
+      const canPay = pending || order.error;
+      const bound = !!(state.partner.wallet || order.recipient);
+      const payDisabled = busy || (pending && !bound);
+      const statusLabel = pending ? "待确认" : "已确认";
+      const rateText = percent == null ? "无法读取" : percent + "%";
+      const commissionText = pending
+        ? "确认后入账"
+        : precise(order.commissionUsdc) + " USDC";
+      const hint = pending
+        ? bound
+          ? "不会向买家扣款。"
+          : "请先到「我的收益」绑定收款钱包。"
+        : order.error
+          ? "佣金尚未记入，可再试一次。"
+          : order.commissionUsdc === "0"
+            ? "当前锁定比例不产生返佣。"
+            : "佣金已记入，随后付到绑定钱包。";
+      return (
+        '<article class="order-row" data-order="' +
+        escapeHTML(order.requestId) +
+        '"><div class="order-row-top"><span class="order-id">' +
+        escapeHTML(short(order.tradeNo || order.requestId)) +
+        '</span><span class="badge' +
+        (pending ? "" : " good") +
+        '">' +
+        statusLabel +
+        "</span></div><div class=\"order-facts\"><span>实付 <strong>" +
+        escapeHTML(usdMinor(order.paymentAmountMinor)) +
+        ' USD</strong></span><span>锁定比例 <strong>' +
+        escapeHTML(rateText) +
+        "</strong></span><span>佣金 <strong>" +
+        escapeHTML(commissionText) +
+        "</strong></span></div>" +
+        (order.error
+          ? '<p class="field-error">' + escapeHTML(order.error) + "</p>"
+          : "") +
+        '<p class="subtle">' +
+        hint +
+        "</p>" +
+        (canPay
+          ? '<div class="actions"><button class="button primary" type="button" data-pay-order="' +
+            escapeHTML(order.requestId) +
+            '"' +
+            (payDisabled ? " disabled" : "") +
+            ">模拟支付成功</button></div>"
+          : "") +
+        "</article>"
+      );
+    })
+    .join("");
+}
 function renderControls() {
   const fixture = state.source === "fixture",
-    local = Number(state.network?.chainId) !== 43113;
+    local = Number(state.network?.chainId) !== 43113,
+    orderDemo = orderDemoOn();
   $("merchant-panel").hidden = role !== "merchant";
   $("promoter-panel").hidden = role !== "promoter";
+  $("order-panel").hidden = !orderDemo || role !== "merchant";
   $("fixture-controls").hidden = !fixture || role !== "merchant";
   $("transfer-controls").hidden = !fixture || role !== "promoter";
   $("demo-wallet").hidden = !local || !fixture;
   $("auto").hidden = !fixture;
-  $("bind").hidden = !fixture;
+  $("bind").hidden = !fixture && !orderDemo;
   $("pause").textContent = state.paused ? "恢复出款" : "暂停出款";
   $("pause-state").textContent = state.paused ? "已暂停" : "出款已开启";
   $("pause-state").className = "badge" + (state.paused ? " warn" : " good");
@@ -216,7 +297,7 @@ function renderControls() {
   $("auto-state").className =
     "badge" +
     ((!fixture ? !state.paused : state.partner.autoSettle) ? " good" : "");
-  if (!fixture) {
+  if (!fixture && !orderDemo) {
     $("recipient").className = "wallet-note";
     $("recipient").textContent =
       "收款地址由 BeefAPI 随结算单确认，可在每笔回执中查看。";
@@ -225,8 +306,10 @@ function renderControls() {
   }
   $("min-description").textContent = fixture
     ? "可用收益满 " + precise(state.minAmount) + " USDC 后自动结算。"
-    : "";
-  $("min-description").hidden = !fixture;
+    : orderDemo
+      ? "确认测试订单后，佣金付到绑定钱包。"
+      : "";
+  $("min-description").hidden = !fixture && !orderDemo;
   $("transfer-description").textContent =
     "转入后用于测试消费，不再参与结算。当前余额 " +
     precise(state.partner.consumed) +
@@ -239,9 +322,13 @@ function renderControls() {
       : "划入后用于测试消费，不再参与结算。当前余额 " +
         precise(state.consumed ?? state.partner.consumed) +
         " USDC。"
-    : "收款地址以结算单为准。";
+    : orderDemo
+      ? "测试订单的佣金付到绑定钱包。"
+      : "收款地址以结算单为准。";
   $("run").disabled = busy || !state.network.configured;
   $("bind").disabled = busy;
+  $("create-order").disabled = busy || !orderDemo;
+  renderOrders();
 }
 function statusClass(status) {
   if (status === "completed") return "good";
@@ -393,6 +480,24 @@ $("pause").addEventListener("click", () =>
 $("run").addEventListener("click", () =>
   action($("run"), () => api("/api/admin/run", {}), "已检查结算，请查看记录。"),
 );
+$("create-order").addEventListener("click", () =>
+  action(
+    $("create-order"),
+    () => api("/api/demo/orders", {}),
+    "测试订单已创建",
+  ),
+);
+$("order-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-pay-order]");
+  if (!button || busy) return;
+  const id = button.dataset.payOrder;
+  action(
+    button,
+    () =>
+      api("/api/demo/orders/" + encodeURIComponent(id) + "/pay", {}),
+    "测试订单已确认，不会向买家扣款。",
+  );
+});
 $("auto").addEventListener("click", () =>
   action(
     $("auto"),

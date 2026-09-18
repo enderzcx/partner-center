@@ -25,12 +25,21 @@ import {
 } from "./config.ts";
 import { acquireProcessLock } from "./lock.ts";
 import { parseAmount } from "./money.ts";
-import { commissionFromBalances, createSource } from "./source.ts";
+import {
+  commissionFromBalances,
+  createSource,
+  DEFAULT_PAYMENT_AMOUNT_MINOR,
+  orderReservationRequestId,
+  parseOrderRequestId,
+  parsePaymentAmountMinor,
+} from "./source.ts";
 import { createStore, type Store } from "./store.ts";
 import {
   type AppState,
   type Chain,
+  type PublicOrder,
   type Source,
+  type SourceOrder,
   ServiceError,
   sanitizeError,
 } from "./types.ts";
@@ -172,6 +181,19 @@ export function createApp(opts: {
   const origin = originOf(opts.config.host, opts.config.port);
   const publicDir = opts.publicDir ?? opts.config.publicDir;
   const now = opts.now ?? opts.store.now ?? Date.now;
+  const orderLocks = new Map<string, Promise<unknown>>();
+
+  const lockOrder = <T>(requestId: string, fn: () => Promise<T>): Promise<T> => {
+    const run = (orderLocks.get(requestId) ?? Promise.resolve()).then(fn, fn);
+    orderLocks.set(
+      requestId,
+      run.then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    return run;
+  };
 
   const requireHost = (req: Request) => {
     const host = req.headers.get("host");
@@ -200,6 +222,108 @@ export function createApp(opts: {
     return { sid, body };
   };
 
+  const orderDemoEnabled = () =>
+    opts.config.orderDemo === true && opts.source.kind === "beefapi";
+
+  const requireOrderDemo = () => {
+    if (!orderDemoEnabled()) {
+      throw new ServiceError(404, "找不到该接口。");
+    }
+  };
+
+  const toPublicOrder = (
+    order: SourceOrder,
+    snapshot?: {
+      recipient: string;
+      error: string | null;
+    } | null,
+  ): PublicOrder => ({
+    requestId: order.requestId,
+    tradeNo: order.tradeNo,
+    paymentAmountMinor: order.paymentAmountMinor,
+    commissionRate: order.commissionRate,
+    commissionUsdc: order.commissionUsdc,
+    status: order.status,
+    recipient: snapshot?.recipient ?? "",
+    error: snapshot?.error ?? null,
+  });
+
+  const loadPublicOrders = async (): Promise<PublicOrder[]> => {
+    if (!opts.source.listOrders) {
+      throw new ServiceError(502, "来源服务暂时不可用。");
+    }
+    const listed = await opts.source.listOrders();
+    const snapshots = new Map(
+      opts.store.listOrderSnapshots().map((row) => [row.requestId, row]),
+    );
+    return listed.map((order) => toPublicOrder(order, snapshots.get(order.requestId)));
+  };
+
+  const createDemoOrder = async (body: Record<string, unknown>): Promise<PublicOrder> => {
+    requireOrderDemo();
+    if (!opts.source.createOrder) {
+      throw new ServiceError(502, "来源服务暂时不可用。");
+    }
+    const paymentAmountMinor = parsePaymentAmountMinor(
+      body.payment_amount_minor,
+      DEFAULT_PAYMENT_AMOUNT_MINOR,
+    );
+    const requestId = crypto.randomUUID();
+    const order = await opts.source.createOrder({
+      requestId,
+      paymentAmountMinor,
+    });
+    return toPublicOrder(order, opts.store.getOrderSnapshot(order.requestId));
+  };
+
+  const payDemoOrder = async (requestIdRaw: string): Promise<PublicOrder> => {
+    requireOrderDemo();
+    if (!opts.source.payOrder) {
+      throw new ServiceError(502, "来源服务暂时不可用。");
+    }
+    const requestId = parseOrderRequestId(requestIdRaw);
+    return lockOrder(requestId, async () => {
+      const partner = opts.store.getPartner();
+      const existing = opts.store.getOrderSnapshot(requestId);
+      if (!existing && !partner.wallet) {
+        throw new ServiceError(400, "请先绑定收款钱包，再确认测试订单。");
+      }
+      const recipient = opts.store.snapshotOrderRecipient(
+        requestId,
+        existing?.recipient ?? partner.wallet,
+        orderReservationRequestId(requestId),
+      );
+      try {
+        const paid = await opts.source.payOrder!(requestId);
+        if (paid.commissionUsdc === "0") {
+          opts.store.setOrderError(requestId, null);
+          return toPublicOrder(paid, {
+            recipient,
+            error: null,
+          });
+        }
+        if (!opts.source.reserveFrozen) {
+          throw new ServiceError(502, "来源服务暂时不可用。");
+        }
+        await opts.source.reserveFrozen({
+          requestId: orderReservationRequestId(requestId),
+          recipient,
+          amountUsdc: paid.commissionUsdc,
+        });
+        opts.store.setOrderError(requestId, null);
+        return toPublicOrder(paid, { recipient, error: null });
+      } catch (err) {
+        const message = sanitizeError(err);
+        try {
+          opts.store.setOrderError(requestId, message);
+        } catch {
+          /* snapshot must already exist */
+        }
+        throw err instanceof ServiceError ? err : new ServiceError(502, message);
+      }
+    });
+  };
+
   const state = async (): Promise<AppState> => {
     let wallet = { token: "", gas: "" };
     let configured = true;
@@ -223,6 +347,19 @@ export function createApp(opts: {
         : (sourceBalances ?? undefined),
     );
     const sourceError = opts.worker.getSourceError() ?? undefined;
+    const orderDemo =
+      opts.config.orderDemo === true && opts.source.kind === "beefapi";
+    let orders: PublicOrder[] | undefined;
+    let orderError: string | undefined;
+    if (orderDemo) {
+      try {
+        orders = await loadPublicOrders();
+      } catch (err) {
+        orders = [];
+        orderError = sanitizeError(err);
+      }
+    }
+    const visibleError = sourceError ?? orderError;
     return {
       network: networkMeta(opts.config.chain.chainId, opts.config.chain.token, {
         configured,
@@ -235,7 +372,9 @@ export function createApp(opts: {
       source: opts.source.kind,
       minAmount: opts.config.minAmount.toString(),
       commission: commissionFromBalances(opts.source.kind, sourceBalances),
-      ...(sourceError ? { sourceError } : {}),
+      orderDemo,
+      ...(orders ? { orders } : orderDemo ? { orders: [] } : {}),
+      ...(visibleError ? { sourceError: visibleError } : {}),
     };
   };
 
@@ -280,6 +419,15 @@ export function createApp(opts: {
         return json(405, { error: "不支持的请求方法。" });
 
       const { sid, body } = await requireMutation(req);
+      if (url.pathname === "/api/demo/orders") {
+        return json(200, { order: await createDemoOrder(body) });
+      }
+      const payMatch = /^\/api\/demo\/orders\/([^/]+)\/pay$/.exec(url.pathname);
+      if (payMatch) {
+        return json(200, {
+          order: await payDemoOrder(decodeURIComponent(payMatch[1] ?? "")),
+        });
+      }
       switch (url.pathname) {
         case "/api/demo/commission": {
           if (opts.source.kind !== "fixture") {
@@ -337,6 +485,9 @@ export function createApp(opts: {
           return json(200, { ok: true });
         }
         case "/api/demo/wallet": {
+          if (orderDemoEnabled()) {
+            throw new ServiceError(403, "请签名绑定收款钱包。");
+          }
           opts.store.setWallet(demoWalletAddress(opts.config));
           return json(200, { ok: true });
         }

@@ -43,6 +43,7 @@ export type RuntimeConfig = {
   merchantId: string;
   partnerId: string;
   partnerName: string;
+  orderDemo: boolean;
 };
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1']);
@@ -155,6 +156,11 @@ export function runtimeConfig(
   if (chainId !== 31337 && chainId !== 43113) {
     throw new Error('只允许本地测试链 31337 或 Fuji 43113。');
   }
+  const source = partial.source ?? 'fixture';
+  const orderDemo = partial.orderDemo ?? false;
+  if (orderDemo && source !== 'beefapi') {
+    throw new Error('测试订单演示只适用于 beefapi 来源。');
+  }
   return {
     host,
     port: partial.port ?? DEFAULT_PORT,
@@ -168,7 +174,8 @@ export function runtimeConfig(
         ? requiredAddress(partial.chain.recipient, '测试收款地址')
         : undefined,
     },
-    source: partial.source ?? 'fixture',
+    source,
+    orderDemo,
     beefapiBaseUrl: partial.beefapiBaseUrl ?? '',
     beefapiToken: partial.beefapiToken ?? '',
     partnerUserId: partial.partnerUserId ?? 1,
@@ -244,6 +251,13 @@ export function loadConfig(opts?: {
   if (source !== 'fixture' && source !== 'beefapi') {
     throw new Error('SETTLEMENT_SOURCE 只允许 fixture 或 beefapi。');
   }
+  const orderDemoRaw = env.SETTLEMENT_ORDER_DEMO;
+  let orderDemo = false;
+  if (orderDemoRaw != null && orderDemoRaw !== '') {
+    if (orderDemoRaw === 'true') orderDemo = true;
+    else if (orderDemoRaw === 'false') orderDemo = false;
+    else throw new Error('SETTLEMENT_ORDER_DEMO 只允许 true 或 false。');
+  }
 
   const publicDir = env.SETTLEMENT_PUBLIC_DIR
     ? isAbsolute(env.SETTLEMENT_PUBLIC_DIR)
@@ -276,6 +290,7 @@ export function loadConfig(opts?: {
     dbPath: resolve(cwd, env.SETTLEMENT_DB ?? join('.local', 'settlement.sqlite')),
     lockPath: resolve(cwd, env.SETTLEMENT_LOCK ?? join('.local', 'settlement.lock')),
     publicDir,
+    orderDemo,
   });
 
   if (cfg.source === 'beefapi') {

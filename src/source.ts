@@ -1,7 +1,7 @@
 import { getAddress, isAddress } from "viem";
 import type { RuntimeConfig } from "./config.ts";
 import { isLoopbackHost } from "./config.ts";
-import { parseAmount } from "./money.ts";
+import { MAX_AMOUNT, parseAmount } from "./money.ts";
 import type { Store } from "./store.ts";
 import {
   type Address,
@@ -12,12 +12,20 @@ import {
   type SourceBalances,
   type SourceItem,
   type SourceKind,
+  type SourceOrder,
   ServiceError,
 } from "./types.ts";
 
 export const COMMISSION_BASIS = "actual_payment" as const;
 export const COMMISSION_LOCKED_AT = "order_creation" as const;
 export const FIXTURE_COMMISSION_RATE = "0.1";
+export const DEFAULT_PAYMENT_AMOUNT_MINOR = "1000";
+export const ORDER_RESERVATION_PREFIX = "order-";
+
+const PAYMENT_MINOR_RE = /^(10000|[1-9][0-9]{0,3})$/;
+const ORDER_REQUEST_ID_RE = /^[a-z0-9][a-z0-9_-]{9,73}$/;
+const TRADE_NO_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/;
+const COMMISSION_USDC_RE = /^(0|[1-9][0-9]*)$/;
 
 const RATE_RE = /^(0(\.[0-9]{1,18})?|1(\.0{1,18})?)$/;
 const API_RATE_SOURCES = new Set(["default", "override", "disabled"]);
@@ -27,6 +35,94 @@ const DISPLAY_RATE_SOURCES = new Set([
   "override",
   "disabled",
 ]);
+
+export function orderReservationRequestId(requestId: string): string {
+  return `${ORDER_RESERVATION_PREFIX}${requestId}`;
+}
+
+export function isOrderRequestId(value: string): boolean {
+  if (!ORDER_REQUEST_ID_RE.test(value)) return false;
+  const reservationId = orderReservationRequestId(value);
+  return reservationId.length >= 16 && reservationId.length <= 80;
+}
+
+export function parsePaymentAmountMinor(
+  value: unknown,
+  fallback?: string,
+): string {
+  if (value == null || value === "") {
+    if (fallback) return fallback;
+    throw new ServiceError(400, "订单金额无效。");
+  }
+  if (typeof value !== "string" || !PAYMENT_MINOR_RE.test(value)) {
+    throw new ServiceError(400, "订单金额无效。");
+  }
+  return value;
+}
+
+export function parseOrderRequestId(value: unknown): string {
+  if (typeof value !== "string" || !isOrderRequestId(value)) {
+    throw new ServiceError(400, "订单编号无效。");
+  }
+  return value;
+}
+
+export function parseSourceOrder(
+  raw: unknown,
+  partnerUserId: number,
+): SourceOrder | "skip" {
+  const row = asRecord(raw);
+  if (row.user_id != null && Number(row.user_id) !== partnerUserId) {
+    return "skip";
+  }
+  const requestId = row.request_id;
+  if (typeof requestId !== "string" || !isOrderRequestId(requestId)) {
+    throw new ServiceError(502, "来源订单格式无法识别。");
+  }
+  const tradeNo = row.trade_no;
+  if (typeof tradeNo !== "string" || !TRADE_NO_RE.test(tradeNo)) {
+    throw new ServiceError(502, "来源订单格式无法识别。");
+  }
+  const paymentAmountMinor = row.payment_amount_minor;
+  if (
+    typeof paymentAmountMinor !== "string" ||
+    !PAYMENT_MINOR_RE.test(paymentAmountMinor)
+  ) {
+    throw new ServiceError(502, "来源订单格式无法识别。");
+  }
+  const commissionRate = parseCommissionRate(row.commission_rate);
+  if (commissionRate == null) {
+    throw new ServiceError(502, "来源订单格式无法识别。");
+  }
+  const statusRaw = row.status;
+  if (statusRaw !== "pending" && statusRaw !== "paid") {
+    throw new ServiceError(502, "来源订单格式无法识别。");
+  }
+  const commissionUsdc = row.commission_usdc;
+  if (
+    typeof commissionUsdc !== "string" ||
+    !COMMISSION_USDC_RE.test(commissionUsdc)
+  ) {
+    throw new ServiceError(502, "来源订单格式无法识别。");
+  }
+  if (commissionUsdc !== "0") {
+    const amount = BigInt(commissionUsdc);
+    if (amount > MAX_AMOUNT) {
+      throw new ServiceError(502, "来源订单格式无法识别。");
+    }
+  }
+  if (statusRaw === "pending" && commissionUsdc !== "0") {
+    throw new ServiceError(502, "来源订单格式无法识别。");
+  }
+  return {
+    requestId,
+    tradeNo,
+    paymentAmountMinor,
+    commissionRate,
+    commissionUsdc,
+    status: statusRaw,
+  };
+}
 
 export function parseCommissionRate(value: unknown): string | null {
   if (typeof value !== "string" || !RATE_RE.test(value)) return null;
@@ -335,6 +431,106 @@ export function createBeefApiSource(
       ) {
         throw new ServiceError(502, "来源回写未确认，将重试。");
       }
+    },
+    async listOrders(): Promise<SourceOrder[]> {
+      const { status, json } = await fetchJson("/api/settlement-test/orders");
+      if (status === 404) throw new ServiceError(502, "来源服务暂时不可用。");
+      if (status !== 200) throw new ServiceError(502, "来源服务暂时不可用。");
+      const data = requireEnvelope(json);
+      if (!Array.isArray(data)) {
+        throw new ServiceError(502, "来源订单格式无法识别。");
+      }
+      const orders: SourceOrder[] = [];
+      for (const raw of data) {
+        const parsed = parseSourceOrder(raw, config.partnerUserId);
+        if (parsed !== "skip") orders.push(parsed);
+      }
+      return orders;
+    },
+    async createOrder(input: {
+      requestId: string;
+      paymentAmountMinor: string;
+    }): Promise<SourceOrder> {
+      const requestId = parseOrderRequestId(input.requestId);
+      const paymentAmountMinor = parsePaymentAmountMinor(
+        input.paymentAmountMinor,
+      );
+      const { status, json } = await fetchJson("/api/settlement-test/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          request_id: requestId,
+          payment_amount_minor: paymentAmountMinor,
+        }),
+      });
+      if (status === 404) throw new ServiceError(502, "来源服务暂时不可用。");
+      if (status !== 200) throw new ServiceError(502, "来源服务暂时不可用。");
+      const parsed = parseSourceOrder(
+        requireEnvelope(json),
+        config.partnerUserId,
+      );
+      if (
+        parsed === "skip" ||
+        parsed.requestId !== requestId ||
+        parsed.paymentAmountMinor !== paymentAmountMinor ||
+        parsed.status !== "pending" ||
+        parsed.commissionUsdc !== "0"
+      ) {
+        throw new ServiceError(502, "来源订单格式无法识别。");
+      }
+      return parsed;
+    },
+    async payOrder(requestId: string): Promise<SourceOrder> {
+      const id = parseOrderRequestId(requestId);
+      const { status, json } = await fetchJson(
+        `/api/settlement-test/orders/${encodeURIComponent(id)}/pay`,
+        { method: "POST", body: "{}" },
+      );
+      if (status === 404) throw new ServiceError(502, "来源服务暂时不可用。");
+      if (status !== 200) throw new ServiceError(502, "来源服务暂时不可用。");
+      const parsed = parseSourceOrder(
+        requireEnvelope(json),
+        config.partnerUserId,
+      );
+      if (parsed === "skip" || parsed.requestId !== id || parsed.status !== "paid") {
+        throw new ServiceError(502, "来源订单格式无法识别。");
+      }
+      return parsed;
+    },
+    async reserveFrozen(input: {
+      requestId: string;
+      recipient: Address;
+      amountUsdc: string;
+    }): Promise<SourceItem> {
+      const { status, json } = await fetchJson(
+        "/api/settlement-test/reservations",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            request_id: input.requestId,
+            user_id: config.partnerUserId,
+            recipient: input.recipient,
+            amount_usdc: input.amountUsdc,
+          }),
+        },
+      );
+      if (status === 409) {
+        throw new ServiceError(409, "同一来源的金额或收款地址不能更改。");
+      }
+      if (status === 404 || status !== 200) {
+        throw new ServiceError(502, "来源服务暂时不可用。");
+      }
+      const parsed = parseRow(requireEnvelope(json));
+      if (parsed === "skip") {
+        throw new ServiceError(502, "来源结算单无法导入。");
+      }
+      if (
+        parsed.requestId !== input.requestId ||
+        parsed.recipient.toLowerCase() !== input.recipient.toLowerCase() ||
+        parsed.amount.toString() !== input.amountUsdc
+      ) {
+        throw new ServiceError(502, "来源结算单无法导入。");
+      }
+      return parsed;
     },
     async balances() {
       try {
