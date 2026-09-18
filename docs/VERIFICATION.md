@@ -1,6 +1,6 @@
-# 本地验收 · 2026-09-18
+# 验收记录 · 2026-09-18
 
-**已完成本地原型验收；未部署 Fuji、未公开发布、未接触生产余额。**
+**当前：Fuji 订单闭环及 partner.bflabs.app 受控公网演示已完成；未接入生产余额或主网。以下按阶段保留历史证据。**
 
 ## 证据
 
@@ -85,3 +85,17 @@ Ender 明确授权后，真实部署 Settlement、充值 1 测试 USDC，使用�
 付款交易 `0x4d90fbc94781a485ff31834e98f43161e3c257b68b450771694d7c855f2f9a48`，receipt success，区块58457829已finalized。合约充值交易 `0x85ab27243343d8cb982a53c94d83a868d6db9fba6720254f064c5045f023e139`。完整公开凭证见 [Fuji订单验收](evidence/fuji-order-demo-2026-09-18.json)。此次是测试订单模拟支付、真实Fuji测试币出款，不是生产支付渠道收款验收。此前“等待签名”状态已由本节完成记录取代；当前单笔授权已执行，不可重复充值或新建付款。
 
 浏览器读回也已确认：Fuji 测试网、累计到账1.00、订单“已到账”、回执“已完成”，收款地址与交易链接均匹配上述凭证。截图捕获遇到 CDP timeout，因此不把截图列为本次证据；实际 DOM 与 API 读回成功。
+
+
+## 2026-09-18 伙伴中心公网演示
+
+- 地址 https://partner.bflabs.app，独立目录 `/home/ubuntu/partner-demo`，独立 Nginx vhost、Docker 和成对 SQLite 账本。DNS-only A 指向已批准服务器；有效 TLS 证书到 2026-12-17。既有 beefapi.com / global.beefapi.com 上线前后均返回200。
+- 应用提交 `9b7fd07`；Go 来源提交 `9195e27074`。发布镜像 `partner-demo:public-v2`，摘要 `sha256:abee753ae99239e74ade75973cc0f2be4e98cc3ddca767999bd2fc13b830d841`。Git 提交保留本地，未推送远端。
+- Bun 75 pass / 0 fail / 636 assertions，TypeScript及浏览器脚本语法通过；Go settlementdemo/model/controller 的 Settlement 检查及治理检查通过。Go 来源为专用常驻可执行文件，替代限时测试二进制。
+- 私有回环和公网HTTPS检查均通过：匿名拒绝、Secure/HttpOnly/Strict会话、跨源拒绝、角色隔离、钱包签名域、退出失效。证据：`evidence/public-demo-private-qa.json`、`evidence/public-demo-https-qa.json`。
+- 迁移保留原10 USD测试订单、10%返佣及1 USDC已到账记录。部署后重放已完成订单不新增出款/账本行。此次发布新增付款0笔；合约测试USDC余额为0，新出款前需另行补充测试资金。
+- 来源地址必须保留127.0.0.1:18784，因为它参与账本运行身份指纹；首次18785配置被正确拒绝，修正配置而未重写指纹或重建订单。
+- 故障恢复实测：public-v1运行中终止容器内精确Go来源进程，Bun退出，Docker重启次数0→1，健康恢复且旧回执/余额不变。public-v2仅修正浏览器账号切换时等待当前账号数据与丢弃旧响应，监督入口未变。
+- 浏览器商家→推广者切换，在工作区首次可见时检查角色面板，均正确；320px无横向溢出，累计到账1.00。早前1440/390/320布局读回均无横向溢出。证据 `evidence/public-demo-browser-qa.json`。Ego截图接口超时、CDP截图失败，因此未宣称取得公网截图或完成截图验收。
+- 安全复核任务 `20260918-163018-review-853a1549`：原始HTML首屏暴露工作区的问题已修复（默认登录页、POST表单、JS就绪前禁用提交）；“process.exitCode无法退出”未复现，缺密钥容器1.96秒以1退出及上述真实来源崩溃重启证据否定该判断；付款方BeefAPI为已批准商家品牌，保留。
+- 版本化v1镜像和初始成对账本备份保留用于回滚；秘密仅挂载私有0600文件，不在镜像/Git/前端。旧本地Fuji来源与worker已停止，避免双执行器。

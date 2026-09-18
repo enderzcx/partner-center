@@ -1,0 +1,17 @@
+{
+  "result": "PASS",
+  "origin": "https://partner.bflabs.app",
+  "transport": "HTTPS",
+  "checks": [
+    "anonymous denial",
+    "secure role sessions",
+    "cross-origin denial",
+    "source routes not exposed",
+    "merchant/promoter isolation",
+    "wallet signature domain",
+    "preserved Fuji receipt",
+    "completed order replay",
+    "logout invalidation"
+  ],
+  "newPayments": 0
+}

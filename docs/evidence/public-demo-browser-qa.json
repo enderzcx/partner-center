@@ -1,0 +1,23 @@
+{
+  "result": "PASS",
+  "checks": [
+    {
+      "role": "merchant",
+      "merchantHidden": false,
+      "ordersHidden": false,
+      "promoterHidden": true,
+      "paid": "1.00",
+      "width": 320,
+      "scrollWidth": 320
+    },
+    {
+      "role": "promoter",
+      "merchantHidden": true,
+      "ordersHidden": true,
+      "promoterHidden": false,
+      "paid": "1.00",
+      "width": 320,
+      "scrollWidth": 320
+    }
+  ]
+}
