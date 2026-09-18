@@ -14,7 +14,7 @@ let state = null,
   fetching = false,
   selectedReceipt = null;
 let ledgerSignature = null;
-let auth = { enabled: false, authenticated: false, role: null };
+let auth = { enabled: true, authenticated: false, role: null };
 let loginBusy = false;
 $("app-shell").hidden = true;
 const escapeHTML = (v) =>
@@ -162,6 +162,7 @@ function showLogin(message) {
   state = null;
   ledgerSignature = null;
   $("login-shell").hidden = false;
+  $("login-submit").disabled = false;
   $("app-shell").hidden = true;
   $("account-bar").hidden = true;
   document.querySelector(".skip").setAttribute("href", "#login-username");
