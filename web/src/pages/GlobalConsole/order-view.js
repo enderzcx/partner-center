@@ -23,7 +23,7 @@ import {
   usdMinor,
 } from '../../helpers/format';
 import { x402Enabled } from '../../helpers/source-support';
-import { orderUsesX402, x402PayButtonText, x402UsdcLabel } from '@settlement/app';
+import { orderUsesX402, x402PayButtonText, x402UsdcLabel } from '../../../../public/app.js';
 
 export function orderPayment(order) {
   return order && order.payment && typeof order.payment === 'object'

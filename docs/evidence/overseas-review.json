@@ -1,0 +1,37 @@
+{
+  "job": "20260919-000619-review-075c8247",
+  "snapshot": "7a636d1",
+  "review": {
+    "verdict": "needs-attention",
+    "summary": "Snapshot 7a636d18 vs 9c575c8: static allowlist, CSP, role-gated APIs, x402 alias to unmodified public/app.js, and order request_id retry look sound for the auth-on beefapi demo. Two P1/P2 contract bugs remain: local fixture mutation controls never open because /api/state omits authEnabled:false, and runAction/payX402/login do not take the old synchronous busy lock.",
+    "findings": [
+      {
+        "severity": "high",
+        "title": "Fixture mutation controls never open in auth-off mode",
+        "body": "source-support.authRequired(state) is true whenever state.authEnabled !== false, including when the field is missing. fixtureMutationsOpen therefore requires an explicit false. createApp state() only spreads { authEnabled: true, role } when auth is on; auth-off /api/state omits the field entirely. Session bootstrap does learn authEnabled:false from GET /api/auth/session, but snapshot applyState does setState(next) without copying that flag onto state. GlobalConsole and Wallet therefore hide /api/demo/commission, /api/partner/auto, /api/partner/transfer, and /api/demo/wallet in the documented local fixture+no-auth mode. web tests only pass { authEnabled: false } and never the live omitted-field payload. Public beefapi+auth demo is unaffected (source !== fixture). Working tree has already started injecting authEnabled in applyState; that patch is not in 7a636d18.",
+        "file": "web/src/helpers/source-support.js",
+        "line_start": 32,
+        "line_end": 38,
+        "confidence": 0.95,
+        "recommendation": "Treat the session flag as source of truth: applyState should stamp authEnabled from the session (or /api/state should always send authEnabled: false). Add a test that fixtureMutationsOpen({ source: 'fixture' }) is true, matching the auth-off payload."
+      },
+      {
+        "severity": "medium",
+        "title": "Busy lock is render-delayed, so pay/bind/login can overlap",
+        "body": "public/app.js lock(true) assigned busy synchronously before the first await. Partner runAction/payX402/login only check busyRef/loginBusyRef, then setBusy/setLoginBusy, and the refs update on the next render. A second click before paint passes the guard. Create-order is still idempotent via createIdRef + request_id. x402 pay and wallet bind are not: two pay() calls can both miss payloads.get(id) and open two signatures; two bindWallet flows can issue overlapping challenges. disabled={busy} does not close the pre-paint window. Same generation/401 handling as the old client is otherwise intact.",
+        "file": "web/src/context/Partner.jsx",
+        "line_start": 214,
+        "line_end": 255,
+        "confidence": 0.85,
+        "recommendation": "Set busyRef.current = true (and loginBusyRef for login/logout) before the first await, the same way lock(true) did, then keep the React state for the UI."
+      }
+    ],
+    "next_steps": [
+      "Fix fixture visibility against the real auth-off /api/state shape and add a test that omits authEnabled.",
+      "Take the busy/loginBusy refs synchronously in runAction, payX402, and login.",
+      "Re-review only those two patches; do not treat the in-progress working-tree applyState edit as part of 7a636d18.",
+      "Limits: no .local/env/production inspection; Vite proxy and homepage images are host-owned; CSP was not relaxed and dist/index.html has no inline scripts; current hashed /assets/* names match staticFileFor."
+    ]
+  },
+  "disposition": "Both findings independently verified and fixed; session authority stamped onto state; synchronous busy refs with pre-fix failing and post-fix passing regression tests. See OVERSEAS-ACCEPTANCE.md."
+}

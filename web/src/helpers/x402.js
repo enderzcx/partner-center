@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { createX402Pay } from '@settlement/app';
+import { createX402Pay } from '../../../public/app.js';
 
 export function createStableX402Pay(io) {
   const payloads = io.payloads || new Map();

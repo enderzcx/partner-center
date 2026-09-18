@@ -28,7 +28,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@settlement/app': path.resolve(__dirname, '../public/app.js'),
     },
   },
   plugins: [
@@ -76,7 +75,13 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:4322',
-        changeOrigin: false,
+        changeOrigin: true,
+        configure(proxy) {
+          proxy.on('proxyReq', (proxyReq, req) => {
+            if (req.headers.origin === 'http://127.0.0.1:4321')
+              proxyReq.setHeader('Origin', 'http://127.0.0.1:4322');
+          });
+        },
       },
     },
   },
@@ -87,7 +92,13 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:4322',
-        changeOrigin: false,
+        changeOrigin: true,
+        configure(proxy) {
+          proxy.on('proxyReq', (proxyReq, req) => {
+            if (req.headers.origin === 'http://127.0.0.1:4321')
+              proxyReq.setHeader('Origin', 'http://127.0.0.1:4322');
+          });
+        },
       },
     },
   },

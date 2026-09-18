@@ -18,7 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { SiX } from 'react-icons/si';
 import {
   GLOBAL_PUBLIC_HEADER_COPY,
   GLOBAL_PUBLIC_NAV_LINKS,
@@ -27,14 +26,7 @@ import './GlobalPublicFooter.css';
 
 const COPY = { community: '相关链接', navigation: '页脚导航' };
 
-export const GLOBAL_PUBLIC_SOCIAL_LINKS = [
-  {
-    key: 'x',
-    href: 'https://x.com/Beef_api',
-    label: 'BeefAPI 的 X',
-    Icon: SiX,
-  },
-];
+
 
 export default function GlobalPublicFooter({ homeHref = '/' }) {
   return (
@@ -43,22 +35,7 @@ export default function GlobalPublicFooter({ homeHref = '/' }) {
         <a className='global-public-footer-brand' href={homeHref}>
           <span>{GLOBAL_PUBLIC_HEADER_COPY.brand}</span>
         </a>
-        <nav
-          className='global-public-footer-social'
-          aria-label={COPY.community}
-        >
-          {GLOBAL_PUBLIC_SOCIAL_LINKS.map(({ key, href, label, Icon }) => (
-            <a
-              key={key}
-              href={href}
-              target='_blank'
-              rel='noopener noreferrer'
-              aria-label={label}
-            >
-              <Icon aria-hidden='true' />
-            </a>
-          ))}
-        </nav>
+        <span className='global-public-footer-social'>BF Labs</span>
         <nav
           className='global-public-footer-links'
           aria-label={COPY.navigation}

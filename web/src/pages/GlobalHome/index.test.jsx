@@ -12,10 +12,10 @@ describe('partner public home', () => {
       </MemoryRouter>,
     );
 
-    expect(html).toContain('伙伴中心。');
-    expect(html).toContain('佣金按实付入账。');
-    expect(html).toContain('当前接入 BeefAPI');
-    expect(html).toContain('结算回执');
+    expect(html).toContain('佣金自动结算');
+    expect(html).toContain('每笔到账可查');
+    expect(html).toContain('BeefAPI 是首个测试接入案例');
+    expect(html).toContain('已完成案例');
     expect(html).toContain('class="global-home-hero"');
     expect(html).toContain('class="global-home-receipt-object"');
     expect(html).toContain('class="global-home-router-panel"');

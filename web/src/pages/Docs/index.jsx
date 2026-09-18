@@ -30,7 +30,7 @@ export default function DocsPage() {
   return (
     <div className='global-home-page partner-docs-page'>
       <GlobalPublicHeader pathname='/docs' />
-      <main id='top' className='partner-docs'>
+      <main id='page-top' className='partner-docs'>
         <div className='global-home-shell'>
           <header className='partner-docs-head'>
             <h1>使用说明</h1>
@@ -41,7 +41,7 @@ export default function DocsPage() {
 
           <section>
             <h2>登录</h2>
-            <p>使用已开通的账号和密码登录。没有自助注册、找回密码或第三方登录。</p>
+            <p>使用已开通的账号和密码登录。账号开通或登录遇到问题时，请联系演示负责人。</p>
             <p>
               <Link to='/login'>打开登录页</Link>
             </p>
@@ -51,7 +51,7 @@ export default function DocsPage() {
             <h2>商家</h2>
             <p>登录后可查看可用收益、结算中金额、已到账金额和出款进度。</p>
             <p>可以暂停或恢复出款，也可以立即检查结算。结果出现在结算记录里。</p>
-            <p>若当前来源打开了测试订单，可以创建订单并用钱包支付测试 USDC。模拟确认不会向买家扣款。</p>
+            <p>在测试订单页面创建订单后，可以使用钱包支付测试 USDC，付款确认后按订单比例结算佣金。</p>
           </section>
 
           <section>
@@ -64,12 +64,12 @@ export default function DocsPage() {
             <h2>返佣怎么算</h2>
             <p>按实际支付金额计算。赠送、试用与收益转入不计返佣。</p>
             <p>比例在下单时确定。之后调整只作用于新订单，不影响已有结算单。</p>
-            <p>页面展示来源给出的现行比例。无法读取时不会显示成 10%。显式 0% 时不产生新返佣，已生成的付款会继续处理。</p>
+            <p>以订单中显示的锁定比例为准。比例为 0% 时不产生新返佣。</p>
           </section>
 
           <section>
             <h2>资金说明</h2>
-            <p>当前网络上的资金无实际价值。链、代币和完整地址写在回执里。</p>
+            <p>当前使用 Avalanche Fuji 测试网，测试 USDC 没有实际价值。可以在回执中核对金额、地址和链上交易。</p>
           </section>
         </div>
       </main>

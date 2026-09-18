@@ -28,59 +28,40 @@ import './global-home.css';
 gsap.registerPlugin(ScrollTrigger);
 
 const COPY = {
-  ratesUnit: '返佣怎么算',
-  ratesLink: '查看使用说明',
-
-  brandHome: '伙伴中心首页',
-  brand: '伙伴中心',
-  primaryNavigation: '主要导航',
-  title: '伙伴中心。',
-  titleSecond: '佣金按实付入账。',
-  heroCopy:
-    '商家查看可用收益和出款进度。推广者查看收益和到账记录。当前接入 BeefAPI。',
-  getStarted: '进入控制台',
-  receiptAria: '结算回执示例',
-  receipt: '结算回执',
+  ratesUnit: '订单与返佣', ratesLink: '了解结算规则',
+  brandHome: '伙伴中心首页', brand: '伙伴中心', primaryNavigation: '主要导航',
+  title: '佣金自动结算', titleSecond: '每笔到账可查',
+  heroCopy: '连接商家的业务账本，将确认的佣金付到合作伙伴钱包。BeefAPI 是首个测试接入案例。',
+  getStarted: '进入控制台', receiptAria: '2026年9月18日已完成的Fuji测试网结算案例',
+  receipt: 'Fuji 测试网 · 已完成案例',
   receiptRows: [
-    { model: 'BeefAPI 付款', tokens: '实付 100 USD', cost: '10.00' },
-    { model: '比例锁定', tokens: '下单时确定', cost: '10%' },
-    { model: '赠送与试用', tokens: '不计返佣', cost: '0.00' },
-    { model: '收益转入', tokens: '不计返佣', cost: '0.00' },
-    { model: '已有订单', tokens: '比例不变', cost: '10.00' },
+    { model: '订单付款', tokens: 'x402', cost: '10 USDC' },
+    { model: '返佣比例', tokens: '下单时锁定', cost: '10%' },
+    { model: '佣金出款', tokens: '自动结算', cost: '1 USDC' },
+    { model: '到账确认', tokens: '链上可查', cost: '已完成' },
+    { model: '结算日期', tokens: '测试资金', cost: '09/18' },
   ],
-  receiptTotalLabel: '合计 · 佣金',
-  receiptTotal: '10.00 USDC',
-  routerTitle: '比例在下单时锁定。',
-  routerTitleSecond: '之后调整不影响已有订单。',
-  routerLead: '佣金按实际支付金额计算。',
-  routerLeadBreak: '赠送、试用与收益转入不计返佣。',
-  routerLeadSecond: '当前比例来自接入来源。',
-  routerLeadSecondBreak: '无法读取时不会显示成 10%。',
-  routerAria: '返佣规则字段依次切换',
-  priceTitle: '按实付计算。',
-  priceTitleSecond: '不计赠送。',
-  priceLead: '页面展示来源给出的现行比例。',
-  priceLeadBreak: '不按展示比例重算已有结算单。',
-  priceLeadSecond: '显式 0% 时不产生新返佣。',
-  priceLeadSecondBreak: '已生成的付款会继续处理。',
-  priceAria: '返佣计算规则',
-  request: '规则',
-  consoleTitle: '可用收益、结算记录和回执在同一处。',
-  consoleShotAlt: '伙伴中心工作台示意，包含收益、结算记录与回执',
-  finalTitle: '登录后查看',
-  finalTitleSecond: '出款进度与到账记录',
-  finalTitleThird: '当前接入 BeefAPI。',
+  receiptTotalLabel: '本次返佣', receiptTotal: '1.00 USDC',
+  routerTitle: '从确认佣金，', routerTitleSecond: '到伙伴钱包。',
+  routerLead: '商家沿用已有的订单与返佣规则。', routerLeadBreak: '确认佣金后，自动进入结算。',
+  routerLeadSecond: '推广者查看收益与到账记录。', routerLeadSecondBreak: '每笔付款都能打开链上回执。',
+  routerAria: '佣金结算流程示意', request: '结算流程示意',
+  priceTitle: '金额算清楚。', priceTitleSecond: '合作更省心。',
+  priceLead: '按实际支付金额计算返佣。', priceLeadBreak: '比例在下单时锁定。',
+  priceLeadSecond: '规则变更只影响新订单。', priceLeadSecondBreak: '已经确认的佣金有据可查。',
+  priceAria: '返佣规则说明',
+  consoleTitle: '收益、付款、回执，一处查看。',
+  consoleShotAlt: '伙伴中心商家控制台，使用已验收的Fuji历史测试订单展示',
+  finalTitle: '让每一笔佣金，', finalTitleSecond: '都有清楚的去向。', finalTitleThird: '伙伴中心 · BF Labs',
 };
-
 const RATE_ROWS = [
-  { name: '实际支付', price: '计入返佣', save: '' },
+  { name: '实际支付', price: '按约定比例返佣', save: '' },
+  { name: '比例锁定', price: '订单创建时确定', save: '' },
+  { name: '规则调整', price: '仅影响新订单', save: '' },
   { name: '赠送与试用', price: '不计返佣', save: '' },
-  { name: '下单时锁定', price: '已有订单不变', save: '' },
-  { name: '显式 0%', price: '不产生新返佣', save: '' },
-  { name: '无法读取', price: '不回退比例', save: '' },
+  { name: '收益转入', price: '不重复返佣', save: '' },
 ];
-
-const ROUTER_FIELDS = ['actual_payment', 'order_creation', 'BeefAPI'];
+const ROUTER_FIELDS = ['确认佣金', '自动出款', '核对到账'];
 const ROUTER_HOLD_MS = 1500;
 const ROUTER_DELETE_MS = 26;
 const ROUTER_TYPE_MS = 40;
@@ -102,16 +83,7 @@ const GlobalHomeRouterRequest = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
 
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      const timer = window.setInterval(() => {
-        setIndex((current) => {
-          const next = (current + 1) % ROUTER_FIELDS.length;
-          setTyped(ROUTER_FIELDS[next]);
-          return next;
-        });
-      }, 2000);
-      return () => window.clearInterval(timer);
-    }
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
 
     let timer = 0;
     let cancelled = false;
@@ -151,8 +123,6 @@ const GlobalHomeRouterRequest = () => {
     };
   }, [index]);
 
-  const fieldKey =
-    index === 0 ? 'basis' : index === 1 ? 'locked_at' : 'source';
 
   return (
     <div className='global-home-router-stage' aria-label={COPY.routerAria}>
@@ -163,25 +133,12 @@ const GlobalHomeRouterRequest = () => {
           <i />
           <span>{COPY.request}</span>
         </div>
-        <pre role='group' aria-label={`返佣规则字段 ${fieldKey}`}>
+        <pre role='group' aria-label='确认佣金、自动出款、核对到账'>
           <code>
-            <span className='global-home-router-dim'>{'{\n  '}</span>
-            <span className='global-home-router-line'>
-              <span className='global-home-router-live'>{`"${fieldKey}": "`}</span>
-              <span
-                className={
-                  editing
-                    ? 'global-home-router-slot is-editing'
-                    : 'global-home-router-slot'
-                }
-                aria-hidden='true'
-              >
-                <span className='global-home-router-model'>{typed}</span>
-                <span className='global-home-router-caret' aria-hidden='true' />
-                <span className='global-home-router-live'>{'"'}</span>
-              </span>
+            <span className='global-home-router-slot' aria-hidden='true'>
+              <span className='global-home-router-model'>{typed}</span>
+              <span className='global-home-router-caret' />
             </span>
-            <span className='global-home-router-dim'>{'\n}'}</span>
           </code>
         </pre>
       </div>
@@ -381,12 +338,13 @@ const GlobalHome = () => {
     <div className='global-home-page'>
       <GlobalPublicHeader pathname='/' />
 
-      <main id='top'>
+      <main id='page-top'>
         <section className='global-home-hero'>
           <div className='global-home-shell'>
+            <p className='partner-home-network'>Avalanche Fuji 测试网 · 测试资金无实际价值</p>
             <h1 className='global-home-reveal global-home-delay-1'>
-              {COPY.title} <br className='global-home-h1-break' />
-              {COPY.titleSecond}
+              <span className='partner-hero-line'>{COPY.title}</span>
+              <span className='partner-hero-line'>{COPY.titleSecond}</span>
             </h1>
             <p className='global-home-hero-copy global-home-reveal global-home-delay-2'>
               {COPY.heroCopy}
@@ -427,6 +385,7 @@ const GlobalHome = () => {
                         {COPY.receiptTotal}
                       </b>
                     </div>
+                    <a className='partner-public-proof' href='https://testnet.avascan.info/tx/0x6f9843b7c2d14211c07ef6d539a625cd4c8b1c962426b49ada6b15ac8fdea23d' target='_blank' rel='noopener noreferrer'>查看这笔链上出款</a>
                   </div>
                 </div>
               </div>
@@ -534,7 +493,7 @@ const GlobalHome = () => {
         </section>
       </main>
 
-      <GlobalPublicFooter homeHref='#top' />
+      <GlobalPublicFooter homeHref='/' />
     </div>
   );
 };

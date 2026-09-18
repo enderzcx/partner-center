@@ -112,7 +112,7 @@ export default function GlobalConsole() {
             >
               {metrics.map((metric) => (
                 <article className='global-dashboard-metric' key={metric.label}>
-                  <span>{metric.label}</span>
+                  <span>{metric.label}{metric.label !== "现行比例" ? " · USDC" : ""}</span>
                   <strong>{metric.value}</strong>
                 </article>
               ))}
@@ -275,8 +275,8 @@ export default function GlobalConsole() {
                   ) : null}
                   {merchant && state.wallet ? (
                     <p>
-                      出款余额 {precise(state.wallet.token)} USDC，燃料{' '}
-                      {units(state.wallet.gas, 18, 4)}
+                      出款余额 {precise(state.wallet.token)} USDC，手续费余额{' '}
+                      {units(state.wallet.gas, 18, 4)} AVAX
                     </p>
                   ) : null}
                 </div>

@@ -117,7 +117,8 @@ export function PartnerProvider({ children }) {
   );
 
   const applyState = useCallback((next) => {
-    setState(next);
+    setState({ ...next, authEnabled: authEnabledRef.current });
+    setNotice((current) => current?.kind === "sync" ? null : current);
     if (next && (next.role === 'merchant' || next.role === 'promoter')) {
       setRole(next.role);
     }
@@ -148,7 +149,7 @@ export function PartnerProvider({ children }) {
         authStatusRef.current !== AUTH_AUTHENTICATED
       )
         throw error;
-      setNotice({ text: '同步失败：' + error.message, error: true });
+      setNotice({ text: '同步失败：' + error.message, error: true, kind: 'sync' });
       setSyncLabel(stateRef.current ? '数据未更新，请重试' : '尚未连接');
       throw error;
     } finally {
@@ -160,13 +161,14 @@ export function PartnerProvider({ children }) {
 
   const login = useCallback(
     async (username, password) => {
-      if (loginBusyRef.current) return;
+      if (loginBusyRef.current || busyRef.current) return;
       const name = String(username || '').trim();
       const pass = String(password || '');
       if (!name || !pass) {
         setLoginError('请填写账号和密码。');
         return;
       }
+      loginBusyRef.current = true;
       setLoginBusy(true);
       setLoginError('');
       try {
@@ -185,13 +187,14 @@ export function PartnerProvider({ children }) {
             ? result.role
             : null,
         );
-        await refresh();
+        await refresh().catch(() => {});
       } catch (error) {
         setLoginError(error.message || '账号或密码不正确。');
         setAuthStatus(AUTH_LOGGED_OUT);
         setRole(null);
         setState(null);
       } finally {
+        loginBusyRef.current = false;
         setLoginBusy(false);
       }
     },
@@ -200,6 +203,7 @@ export function PartnerProvider({ children }) {
 
   const logout = useCallback(async () => {
     if (busyRef.current || loginBusyRef.current) return;
+    loginBusyRef.current = true;
     setLoginBusy(true);
     try {
       await api.request('/api/auth/logout', {});
@@ -207,13 +211,15 @@ export function PartnerProvider({ children }) {
     } catch (error) {
       setNotice({ text: error.message, error: true });
     } finally {
+      loginBusyRef.current = false;
       setLoginBusy(false);
     }
   }, [api, showLoggedOut]);
 
   const runAction = useCallback(
     async (task, message) => {
-      if (busyRef.current) return;
+      if (busyRef.current || loginBusyRef.current) return;
+      busyRef.current = true;
       setBusy(true);
       try {
         await task();
@@ -224,6 +230,7 @@ export function PartnerProvider({ children }) {
           return;
         setNotice({ text: error.message, error: true });
       } finally {
+        busyRef.current = false;
         setBusy(false);
       }
     },
@@ -232,7 +239,8 @@ export function PartnerProvider({ children }) {
 
   const payX402 = useCallback(
     async (order) => {
-      if (busyRef.current) return;
+      if (busyRef.current || loginBusyRef.current) return;
+      busyRef.current = true;
       setBusy(true);
       try {
         const outcome = await x402Pay.pay(order);
@@ -251,6 +259,7 @@ export function PartnerProvider({ children }) {
           return;
         setNotice({ text: error.message, error: true });
       } finally {
+        busyRef.current = false;
         setBusy(false);
       }
     },
@@ -277,13 +286,14 @@ export function PartnerProvider({ children }) {
         ) {
           setRole(session.role);
         }
+        if (!enabled) setRole('merchant');
         authStatusRef.current = AUTH_AUTHENTICATED;
         setAuthStatus(AUTH_AUTHENTICATED);
-        await refresh();
+        await refresh().catch(() => {});
       } catch (error) {
         if (cancelled) return;
         if (authEnabledRef.current) showLoggedOut(error.message);
-        else setNotice({ text: '同步失败：' + error.message, error: true });
+        else setNotice({ text: '同步失败：' + error.message, error: true, kind: 'sync' });
       }
     })();
     return () => {

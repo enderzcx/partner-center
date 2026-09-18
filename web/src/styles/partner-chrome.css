@@ -370,3 +370,24 @@
     border-top: 1px solid var(--global-line);
   }
 }
+
+.partner-home-network { color: var(--global-soft); font-size: 13px; margin: 0 0 28px; }
+.partner-public-proof { display: inline-block; margin-top: 18px; color: var(--global-accent-deep); font-size: 13px; }
+.global-home-page h1, .global-home-page h2 { letter-spacing: 0; }
+
+body.global-site-app .app-sider .sidebar-container { min-height: 100dvh; }
+body.global-site-app .app-sider--mobile .sidebar-container { min-height: calc(100dvh - 70px); }
+.partner-side-panel > p { margin: 0; }
+.partner-side-panel .partner-rate-value { margin-bottom: 6px; }
+
+@media (max-width: 600px) {
+  .partner-table th:nth-child(3), .partner-table td:nth-child(3) { display: none; }
+  .partner-table th, .partner-table td { padding: 12px 6px; }
+  .partner-table th:first-child { width: 48%; }
+  .partner-table th:nth-child(2) { width: 27%; }
+  .partner-table th:last-child { width: 25%; }
+  .partner-table .partner-badge { white-space: nowrap; }
+  .partner-receipt-button { overflow-wrap: normal; }
+}
+
+.partner-hero-line { display: block; white-space: nowrap; }

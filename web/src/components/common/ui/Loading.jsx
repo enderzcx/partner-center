@@ -19,8 +19,16 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import { Spin } from '@douyinfe/semi-ui';
+import { usePartner } from '../../../context/Partner';
 
 const Loading = ({ size = 'small' }) => {
+  const { notice, refresh } = usePartner();
+  if (notice?.kind === 'sync') return (
+    <div className='partner-loading' role='alert'>
+      <span>{notice.text}</span>
+      <button className='global-button secondary' onClick={() => refresh().catch(() => {})}>重新读取</button>
+    </div>
+  );
   return (
     <div className='partner-loading' role='status'>
       <Spin size={size} spinning={true} />

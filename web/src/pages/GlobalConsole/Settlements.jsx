@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ReceiptText } from 'lucide-react';
 import { usePartner } from '../../context/Partner';
 import Loading from '../../components/common/ui/Loading';
@@ -31,6 +31,7 @@ import {
   statusClass,
   time,
 } from '../../helpers/format';
+import { orderUsesX402 } from '../../../../public/app.js';
 import { x402Enabled } from '../../helpers/source-support';
 import { orderPayment } from './order-view';
 import {
@@ -51,6 +52,13 @@ function orderForPayout(state, payout) {
 export default function ConsoleSettlements() {
   const { state, role } = usePartner();
   const [selected, setSelected] = useState(null);
+  const dialogRef = useRef(null);
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (selected && !dialog.open) dialog.showModal();
+    if (!selected && dialog.open) dialog.close();
+  }, [selected]);
   if (!state) return <Loading />;
   const payouts = Array.isArray(state.payouts) ? state.payouts : [];
   const selectedPayout = payouts.find(
@@ -63,8 +71,7 @@ export default function ConsoleSettlements() {
     matched && orderPayment(matched) && orderPayment(matched).txHash;
   const showIncoming =
     matched &&
-    (matched.payment?.mode === 'x402' ||
-      x402Enabled(state) ||
+    (orderUsesX402(matched, x402Enabled(state)) ||
       isTxHash(incomingHash));
   const n = state.network || {};
   const fuji = Number(n.chainId) === 43113;
@@ -147,7 +154,9 @@ export default function ConsoleSettlements() {
       </div>
       <dialog
         className='invitation-transfer'
-        open={!!selectedPayout}
+        ref={dialogRef}
+        aria-label='结算回执'
+        onCancel={() => setSelected(null)}
         onClose={() => setSelected(null)}
       >
         {selectedPayout ? (

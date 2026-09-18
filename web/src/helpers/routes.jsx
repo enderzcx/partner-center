@@ -52,6 +52,6 @@ export function RoleRoute({ role, children }) {
   if (authEnabled && authStatus !== AUTH_AUTHENTICATED) {
     return <Navigate to='/login' replace state={{ from: location.pathname }} />;
   }
-  if (current && current !== role) return <Navigate to='/console' replace />;
+  if (authEnabled && current && current !== role) return <Navigate to='/console' replace />;
   return children;
 }

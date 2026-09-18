@@ -19,6 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { LocaleProvider } from '@douyinfe/semi-ui';
+import zhCN from '@douyinfe/semi-ui/lib/es/locale/source/zh_CN';
 import { BrowserRouter } from 'react-router-dom';
 import '@douyinfe/semi-ui/dist/css/semi.css';
 import { PartnerProvider } from './context/Partner';
@@ -39,6 +41,7 @@ if (typeof window !== 'undefined') {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
+    <LocaleProvider locale={zhCN}>
     <PartnerProvider>
       <BrowserRouter
         future={{
@@ -49,5 +52,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <PageLayout />
       </BrowserRouter>
     </PartnerProvider>
+    </LocaleProvider>
   </React.StrictMode>,
 );

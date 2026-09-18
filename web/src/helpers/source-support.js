@@ -68,7 +68,7 @@ export function sidebarItemsFor(role, state) {
     to: '/console/settlements',
     text: '结算记录',
   });
-  if (role === 'promoter') {
+  if (role === 'promoter' || (state && state.authEnabled === false)) {
     items.push({ key: 'wallet', to: '/console/wallet', text: '收款钱包' });
   }
   return items;

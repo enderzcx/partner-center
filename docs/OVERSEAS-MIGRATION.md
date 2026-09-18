@@ -26,7 +26,7 @@
 视觉与结构以这些文件为准：
 
 - `web/src/pages/GlobalHome/global-home.css`
-- `web/src/pages/GlobalHome/index.jsx`（结构保留，文案与数据改成佣金）
+- `web/src/pages/GlobalHome/index.jsx`（结构保留，文案改成伙伴结算，回执使用已核验历史Fuji案例）
 - `web/src/styles/global-site.css`（补了自托管 `@font-face` 和 CJK 回退）
 - `web/src/pages/GlobalConsole/global-console.css`
 - `web/src/pages/GlobalConsole/invitation.css`
@@ -38,7 +38,7 @@
 - `web/src/components/common/logo/GlobalBrandMark.jsx`
 - `web/src/hooks/common/useIsMobile.js`
 - `web/src/hooks/common/useSidebarCollapsed.js`
-- `web/public/global/console-preview.png` 及品牌图标
+- `web/public/global/console-preview.png` 的展示位置及BF Labs图标（控制台截图已更新）
 - `web/public/fonts/schibsted-latin.woff2`、`geist-mono-latin.woff2`（从仓库 `public/fonts/` 拷入）
 
 QuantumNous / new-api 版权头保留。`UPSTREAM-LICENSE` 为 AGPLv3 原文。
@@ -53,7 +53,7 @@ QuantumNous / new-api 版权头保留。`UPSTREAM-LICENSE` 为 AGPLv3 原文。
 - `web/src/pages/Docs/index.jsx`
 - `web/src/styles/partner-chrome.css`：把原先写在 JSX `style=` 里的布局挪到 CSS，并补订单/回执/说明
 
-x402 通过 Vite alias `@settlement/app` 引用仓库 `public/app.js` 的 `createX402Pay`。React 树里没有 `#app-shell`，旧 `bindUi()` 不会启动。付款签名缓存在稳定的 `Map` 实例里。
+x402 直接通过相对路径引用仓库 `public/app.js` 的 `createX402Pay`，Vite构建和Bun测试使用同一解析路径。React 树里没有 `#app-shell`，旧 `bindUi()` 不会启动。付款签名缓存在稳定的 `Map` 实例里。
 
 ## 删除的上游面
 
@@ -96,7 +96,9 @@ x402 通过 Vite alias `@settlement/app` 引用仓库 `public/app.js` 的 `creat
 
 ## 空隙
 
-- `/global/console-preview.png` 仍是上游海外控制台截图，首页用来保持原构图，不是本仓库运行时画面。
+- `/global/console-preview.png` 已替换为迁移版真实运行截图，数据为Fuji历史验收快照。
 - 海外顶栏在 820px 以下隐藏文字导航，只留品牌和「进入控制台」。这是上游行为。页脚仍有「说明」「登录」。
 - Semi 体积仍大，因为登录表单和侧栏要沿用海外站组件。
 - 未实现注册、找回密码、OAuth。`/register`、`/reset` 转到 `/login`。
+
+主会话整合与验收见 OVERSEAS-ACCEPTANCE.md；上面的7项测试是作者阶段记录，不是最终门禁总数。
