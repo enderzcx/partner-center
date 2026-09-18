@@ -153,6 +153,29 @@ test('static allowlist, CSP, session cookie, and loopback host checks', async ()
   expect(JSON.stringify(body)).not.toContain(KEY);
 });
 
+test('React deep links and generated assets keep host, CSP and API boundaries', async () => {
+  const { app, config } = harness();
+  mkdirSync(join(config.publicDir, 'assets'));
+  writeFileSync(join(config.publicDir, 'assets', 'index-abc123.js'), 'export const ready = true;');
+  writeFileSync(join(config.publicDir, 'assets', 'index-abc123.css'), 'body{color:black}');
+  const { sid } = await open(app);
+  for (const route of ['/login', '/console/orders', '/console/settlements', '/console/wallet', '/docs']) {
+    const response = await req(app, route, { sid });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('text/html');
+    expect(response.headers.get('content-security-policy')).not.toContain('unsafe-inline');
+  }
+  const asset = await req(app, '/assets/index-abc123.js', { sid });
+  expect(asset.status).toBe(200);
+  expect(asset.headers.get('content-type')).toContain('javascript');
+  expect(await asset.text()).toContain('ready');
+  expect((await req(app, '/assets/index-abc123.css', { sid })).headers.get('content-type')).toContain('text/css');
+  expect((await req(app, '/assets/missing.js', { sid })).status).toBe(404);
+  expect((await req(app, '/assets/index-abc123.js.map', { sid })).status).toBe(404);
+  expect((await req(app, '/api/unknown', { sid })).headers.get('content-type')).toContain('application/json');
+  expect((await req(app, '/assets/index-abc123.js', { host: 'evil.example' })).status).toBe(403);
+});
+
 test('mutations require same-origin JSON cookie; demo commission and run settle', async () => {
   const { app, store, chain } = harness();
   const { sid } = await open(app);
