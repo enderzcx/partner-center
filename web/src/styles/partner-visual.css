@@ -1,0 +1,194 @@
+/* Partner surface audit: scoped specificity also wins over lazy page CSS. */
+:root {
+  --partner-secondary: oklch(0.51 0.014 255);
+  --partner-panel-radius: 14px;
+  --partner-input-radius: 10px;
+}
+body.global-site-app {
+  --global-dim: var(--partner-secondary);
+}
+body.global-site-app button,
+body.global-site-app input,
+body.global-site-app summary {
+  font-family: var(--global-display);
+}
+body.global-site-app :where(button, a, input, summary):focus-visible {
+  outline: 2px solid var(--global-accent);
+  outline-offset: 3px;
+}
+body.global-site-app .global-sidebar-account-chevron { color: var(--global-soft); }
+
+body.global-site-app .global-console-page .global-workspace-header {
+  align-items: center;
+  gap: 24px;
+  padding-bottom: 24px;
+}
+body.global-site-app .global-console-page .global-workspace-title h1 {
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+body.global-site-app .global-workspace-title .invitation-subtitle {
+  margin: 0;
+  color: var(--global-soft);
+  font-size: 14px;
+  line-height: 1.7;
+  letter-spacing: 0;
+}
+body.global-site-app .global-console-page .global-workspace-content {
+  padding-top: 0;
+}
+body.global-site-app .global-console-page h2,
+body.global-site-app .invitation-share-body h2,
+body.global-site-app .invitation-transfer h2,
+body.global-site-app .global-auth-root h1,
+body.global-site-app .global-auth-root h2,
+body.global-site-app .global-auth-root h3 {
+  letter-spacing: 0;
+  line-height: 1.3;
+}
+body.global-site-app .global-dashboard-metric > span,
+body.global-site-app .global-dashboard-request-head,
+body.global-site-app .global-dashboard-panel-head a,
+body.global-site-app .global-dashboard-request > span,
+body.global-site-app .global-dashboard-request > time,
+body.global-site-app .global-dashboard-request > b {
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-transform: none;
+}
+body.global-site-app .global-dashboard-request > b.good { color: var(--global-green); }
+body.global-site-app .global-dashboard-request > b.warn { color: #a12d23; }
+body.global-site-app .global-dashboard-metric > strong,
+body.global-site-app .partner-receipt-amount,
+body.global-site-app .partner-table td:nth-child(2),
+body.global-site-app .invitation-metric strong {
+  font-variant-numeric: tabular-nums;
+}
+body.global-site-app .partner-order-top > span:first-child,
+body.global-site-app .partner-receipt-fields dd,
+body.global-site-app .invitation-link-field input {
+  font-family: 'Geist Mono', 'SFMono-Regular', 'PingFang SC', monospace;
+  font-size: 13px;
+  line-height: 1.65;
+}
+body.global-site-app .global-dashboard-metrics,
+body.global-site-app .global-dashboard-activity,
+body.global-site-app .invitation-hero,
+body.global-site-app .invitation-metrics,
+body.global-site-app .invitation-activity {
+  border: 1px solid var(--global-line);
+  border-radius: var(--partner-panel-radius);
+  background: var(--global-card);
+}
+body.global-site-app .partner-table tbody tr:last-child td { border-bottom: 0; }
+body.global-site-app .partner-table th,
+body.global-site-app .partner-table td { line-height: 1.6; }
+body.global-site-app .partner-table th:nth-child(2),
+body.global-site-app .partner-table td:nth-child(2) { text-align: right; }
+body.global-site-app .partner-receipt-button { min-height: 44px; align-content: center; }
+body.global-site-app .invitation-link-field,
+body.global-site-app .partner-amount-form input { border-radius: var(--partner-input-radius); }
+body.global-site-app .global-button { line-height: 1.4; }
+body.global-site-app .partner-side-panel { line-height: 1.7; }
+body.global-site-app .partner-sync { color: var(--partner-secondary); }
+body.global-site-app .invitation-transfer { overscroll-behavior: contain; }
+body.global-site-app .invitation-transfer-card {
+  box-sizing: border-box;
+  border: 1px solid var(--global-line);
+  border-radius: var(--partner-panel-radius);
+}
+body.global-site-app .invitation-transfer-actions {
+  position: sticky;
+  bottom: -1px;
+  background: var(--global-card);
+  padding-top: 12px;
+}
+
+body.global-site-app .global-home-page {
+  --global-home-faint: rgba(29, 36, 50, 0.67);
+}
+body.global-site-app .global-home-page h1,
+body.global-site-app .global-home-page h2,
+body.global-site-app .global-home-page h3 {
+  letter-spacing: 0;
+  line-height: 1.14;
+}
+body.global-site-app .global-home-router-panel { background-color: #1a202b; }
+body.global-site-app .global-home-router-bar span { color: rgba(231,236,246,0.72); letter-spacing: 0; }
+body.global-site-app .global-home-receipt-line span { line-height: 1.5; }
+body.global-site-app .global-home-hero-copy { text-wrap: pretty; }
+
+@media (max-width: 820px) {
+  body.global-site-app .global-console-page .global-workspace-header {
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-start;
+    padding-bottom: 22px;
+  }
+  body.global-site-app .global-console-page .global-workspace-title h1 { font-size: 28px; }
+  body.global-site-app .global-workspace-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  body.global-site-app .global-workspace-actions .global-button.secondary { display: inline-flex; margin-left: auto; }
+  body.global-site-app .global-sidebar-collapse-button { min-height: 36px; min-width: 36px; }
+  body.global-site-app .global-dashboard-metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  body.global-site-app .global-dashboard-metric { min-height: 102px; padding: 18px 16px; }
+  body.global-site-app .global-dashboard-metric + .global-dashboard-metric { border: 0; }
+  body.global-site-app .global-dashboard-metric:nth-child(even) { border-left: 1px solid var(--global-line); }
+  body.global-site-app .global-dashboard-metric:nth-child(n+3) { border-top: 1px solid var(--global-line); }
+  body.global-site-app .partner-table th:first-child { width: 45%; }
+  body.global-site-app .partner-table th:nth-child(2) { width: 27%; }
+  body.global-site-app .partner-table th:last-child { width: 28%; }
+}
+@media (prefers-color-scheme: dark) {
+  body.global-site-app .global-home-page { --global-home-faint: rgba(226,232,244,0.72); }
+}
+body.global-site-app .partner-receipt-header {
+  position: sticky;
+  top: -1px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 8px;
+  background: var(--global-card);
+}
+body.global-site-app .partner-receipt-header h2 { margin: 0; font-size: 20px; }
+body.global-site-app .invitation-transfer-card > .partner-badge { justify-self: start; }
+body.global-site-app .partner-payee { margin: 0; font-size: 13px; line-height: 1.7; }
+body.global-site-app .partner-payee span { font-family: 'Geist Mono', monospace; overflow-wrap: anywhere; }
+body.global-site-app .partner-receipt-details summary { min-height: 44px; align-content: center; cursor: pointer; font-size: 13px; }
+body.global-site-app .partner-receipt-details .partner-receipt-fields { padding-top: 12px; }
+body.global-site-app .partner-gas-balance { display: flex; flex-wrap: wrap; gap: 6px 12px; }
+body.global-site-app .partner-gas-balance span:last-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
+body.global-site-app .global-home-receipt-paper .global-home-receipt-line span,
+body.global-site-app .global-home-receipt-paper .global-home-receipt-bottom > span { color: rgba(29,36,50,0.67); }
+body.global-site-app .invitation-transfer-card .partner-receipt-amount {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  color: var(--global-ink);
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+body.global-site-app .partner-receipt-amount small { font-size: 14px; font-weight: 500; }
+body.global-site-app .partner-receipt-header h2 { font-weight: 600; }
+body.global-site-app .invitation-transfer-card a { color: var(--global-accent-deep); text-underline-offset: 3px; line-height: 1.7; }
+body.global-site-app .global-dashboard-metric > strong,
+body.global-site-app .invitation-metric strong,
+body.global-site-app .partner-table td:nth-child(2) { overflow-wrap: anywhere; min-width: 0; max-width: 100%; }
+body.global-site-app .partner-auth-title-line { display: block; white-space: nowrap; }
+body.global-site-app .global-home-final-last { display: block; margin-top: 24px; white-space: normal; font-size: clamp(16px, 2vw, 22px); line-height: 1.5; }
+@media (prefers-reduced-motion: reduce) {
+  body.global-site-app .global-home-scrollfx { opacity: 1; transform: none; }
+}

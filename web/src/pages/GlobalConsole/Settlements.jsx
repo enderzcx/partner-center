@@ -161,13 +161,19 @@ export default function ConsoleSettlements() {
       >
         {selectedPayout ? (
           <div className='invitation-transfer-card'>
-            <h2>结算回执</h2>
+            <div className='partner-receipt-header'>
+              <h2>结算回执</h2>
+              <button className='global-button secondary' type='button' onClick={() => setSelected(null)}>关闭</button>
+            </div>
             <span className={'partner-badge ' + statusClass(selectedPayout.status)}>
               {PAYOUT_STATUSES[selectedPayout.status] || selectedPayout.status}
             </span>
             <p className='partner-receipt-amount'>
               {precise(selectedPayout.amount)} <small>USDC</small>
             </p>
+            <p className='partner-payee'>{networkLabel(n.chainId)}<br />收款地址<br /><span>{selectedPayout.recipient}</span></p>
+            <details className='partner-receipt-details'>
+              <summary>单号与交易详情</summary>
             <dl className='partner-receipt-fields'>
               <div>
                 <dt>结算单号</dt>
@@ -224,6 +230,7 @@ export default function ConsoleSettlements() {
                 </div>
               ) : null}
             </dl>
+            </details>
             {fuji && isTxHash(incomingHash) ? (
               <p>
                 <a
@@ -248,15 +255,7 @@ export default function ConsoleSettlements() {
                 </a>
               </p>
             ) : null}
-            <div className='invitation-transfer-actions'>
-              <button
-                className='global-button secondary'
-                type='button'
-                onClick={() => setSelected(null)}
-              >
-                关闭
-              </button>
-            </div>
+
           </div>
         ) : null}
       </dialog>

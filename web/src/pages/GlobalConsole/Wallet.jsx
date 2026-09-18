@@ -132,22 +132,22 @@ export default function ConsoleWallet() {
                     ) : null}
                   </div>
                 ) : (
-                  <p>当前来源不在这里绑定收款地址。</p>
+                  <p>此账户的收款地址由商家管理，可在结算回执中查看。</p>
                 )}
               </div>
             </section>
 
             <section className='invitation-metrics' aria-label='收益'>
               <div className='invitation-metric invitation-metric--pending'>
-                <span className='invitation-eyebrow'>可用收益</span>
+                <span className='invitation-eyebrow'>可用收益 · USDC</span>
                 <strong>{precise(partner.available)}</strong>
               </div>
               <div className='invitation-metric'>
-                <span className='invitation-eyebrow'>结算中</span>
+                <span className='invitation-eyebrow'>结算中 · USDC</span>
                 <strong>{precise(partner.pending)}</strong>
               </div>
               <div className='invitation-metric'>
-                <span className='invitation-eyebrow'>已到账</span>
+                <span className='invitation-eyebrow'>已到账 · USDC</span>
                 <strong>{precise(partner.paid)}</strong>
               </div>
             </section>

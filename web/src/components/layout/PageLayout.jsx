@@ -61,6 +61,29 @@ const PageLayout = () => {
     setDrawerOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (!isMobile || !drawerOpen) return;
+    const handleKey = (event) => {
+      const opener = document.querySelector('.global-mobile-menu-button');
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setDrawerOpen(false);
+        opener?.focus();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = [opener, ...document.querySelectorAll('.app-sider--mobile a, .app-sider--mobile button, .app-sider--mobile summary')]
+        .filter((item) => item && !item.disabled && item.getClientRects().length);
+      if (!items.length) return;
+      const current = items.indexOf(document.activeElement);
+      event.preventDefault();
+      const next = current < 0 ? 0 : (current + (event.shiftKey ? -1 : 1) + items.length) % items.length;
+      items[next]?.focus();
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [isMobile, drawerOpen]);
+
   return (
     <Layout
       className={
@@ -85,6 +108,7 @@ const PageLayout = () => {
         <button
           type='button'
           className='global-mobile-menu-backdrop'
+          tabIndex={-1}
           aria-label={GLOBAL_CLOSE_NAVIGATION_BACKDROP_LABEL}
           onClick={() => setDrawerOpen(false)}
         />

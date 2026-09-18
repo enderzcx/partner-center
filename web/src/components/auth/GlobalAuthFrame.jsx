@@ -24,7 +24,7 @@ import GlobalPublicFooter from '../layout/GlobalPublicFooter';
 
 const CONTENT = {
   login: {
-    title: '登录伙伴中心。',
+    title: '登录伙伴中心',
   },
 };
 
@@ -38,7 +38,7 @@ const GlobalAuthFrame = ({ mode = 'login', children }) => {
       <main className='global-auth-page' aria-labelledby='global-auth-title'>
         <div className='global-auth-shell'>
           <section className='global-auth-story'>
-            <h1 id='global-auth-title'>{content.title}</h1>
+            <h1 id='global-auth-title'><span className='partner-auth-title-line'>登录</span><span className='partner-auth-title-line'>伙伴中心</span></h1>
             {content.body ? (
               <p className='global-auth-story-copy'>{content.body}</p>
             ) : null}

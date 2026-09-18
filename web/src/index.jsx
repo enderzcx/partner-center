@@ -30,6 +30,7 @@ import './styles/global-site.css';
 import './pages/GlobalConsole/global-console.css';
 import './pages/GlobalConsole/invitation.css';
 import './styles/partner-chrome.css';
+import './styles/partner-visual.css';
 
 if (typeof window !== 'undefined') {
   console.log(

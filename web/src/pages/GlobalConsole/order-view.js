@@ -108,7 +108,7 @@ export function orderView(order, state, payloads, authEnabled) {
     } else if (order.commissionUsdc === '0') {
       hint = '当前锁定比例不产生返佣。';
     } else if (payout?.status === 'completed') {
-      hint = '已到账，可在下方结算记录查看回执。';
+      hint = '已到账，可到「结算记录」查看回执。';
     } else {
       hint = '测试 USDC 已到账，佣金将付到本单收款钱包。';
     }
@@ -124,7 +124,7 @@ export function orderView(order, state, payloads, authEnabled) {
         : order.commissionUsdc === '0'
           ? '当前锁定比例不产生返佣。'
           : payout?.status === 'completed'
-            ? '已到账，可在下方结算记录查看回执。'
+            ? '已到账，可到「结算记录」查看回执。'
             : '佣金已记入，随后付到本单收款钱包。';
   }
   const amountLabel = x402

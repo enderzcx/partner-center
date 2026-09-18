@@ -274,9 +274,9 @@ export default function GlobalConsole() {
                     </div>
                   ) : null}
                   {merchant && state.wallet ? (
-                    <p>
-                      出款余额 {precise(state.wallet.token)} USDC，手续费余额{' '}
-                      {units(state.wallet.gas, 18, 4)} AVAX
+                    <p className='partner-gas-balance'>
+                      <span>手续费余额</span>
+                      <span>{units(state.wallet.gas, 18, 4)} AVAX</span>
                     </p>
                   ) : null}
                 </div>

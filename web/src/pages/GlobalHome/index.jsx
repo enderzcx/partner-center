@@ -52,7 +52,7 @@ const COPY = {
   priceAria: '返佣规则说明',
   consoleTitle: '收益、付款、回执，一处查看。',
   consoleShotAlt: '伙伴中心商家控制台，使用已验收的Fuji历史测试订单展示',
-  finalTitle: '让每一笔佣金，', finalTitleSecond: '都有清楚的去向。', finalTitleThird: '伙伴中心 · BF Labs',
+  finalTitle: '每一笔佣金', finalTitleSecond: '都能核对到账', finalTitleThird: '伙伴中心 · BF Labs',
 };
 const RATE_ROWS = [
   { name: '实际支付', price: '按约定比例返佣', save: '' },
@@ -261,7 +261,7 @@ const GlobalHome = () => {
   }, []);
 
   useEffect(() => {
-    if (!('IntersectionObserver' in window)) return undefined;
+    if (!('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
     const targets = document.querySelectorAll(
       '.global-home-section-head, .global-home-router-copy, .global-home-router, .global-home-rates-copy, .global-home-rates, .global-home-shot',
     );

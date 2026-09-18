@@ -1,0 +1,211 @@
+{
+  "date": "2026-09-19",
+  "scope": "Local read-only rendered frontend; no chain payments or deployment",
+  "fonts": {
+    "latin": "Schibsted Grotesk (custom)",
+    "addresses": "Geist Mono (custom)",
+    "chinese": "PingFang SC (platform)"
+  },
+  "checks": [
+    {
+      "case": "home-after",
+      "route": "/",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "home-reduced-final",
+      "route": "/",
+      "width": 320,
+      "scrollWidth": 320,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "home-dark",
+      "route": "/",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "docs-desktop-final",
+      "route": "/docs",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "docs-320",
+      "route": "/docs",
+      "width": 320,
+      "scrollWidth": 320,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "login-desktop-final",
+      "route": "/login",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "login-320-final",
+      "route": "/login",
+      "width": 320,
+      "scrollWidth": 320,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "login-error-320",
+      "route": "/login",
+      "width": 320,
+      "scrollWidth": 320,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "merchant-final",
+      "route": "/console",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "merchant-320-final",
+      "route": "/console",
+      "width": 320,
+      "scrollWidth": 320,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "promoter-desktop-final",
+      "route": "/console",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "promoter-mobile",
+      "route": "/console",
+      "width": 390,
+      "scrollWidth": 390,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "orders-after",
+      "route": "/console/orders",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "orders-768",
+      "route": "/console/orders",
+      "width": 768,
+      "scrollWidth": 768,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "records-after",
+      "route": "/console/settlements",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "records-mobile",
+      "route": "/console/settlements",
+      "width": 390,
+      "scrollWidth": 390,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "records-768",
+      "route": "/console/settlements",
+      "width": 768,
+      "scrollWidth": 768,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "wallet-desktop-final",
+      "route": "/console/wallet",
+      "width": 1440,
+      "scrollWidth": 1440,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "wallet-mobile",
+      "route": "/console/wallet",
+      "width": 390,
+      "scrollWidth": 390,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "wallet-320",
+      "route": "/console/wallet",
+      "width": 320,
+      "scrollWidth": 320,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "receipt-final",
+      "route": "/console/settlements",
+      "width": 390,
+      "scrollWidth": 390,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "empty-final",
+      "route": "/console",
+      "width": 320,
+      "scrollWidth": 320,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    },
+    {
+      "case": "error-final",
+      "route": "/console",
+      "width": 320,
+      "scrollWidth": 320,
+      "smallTextCount": 0,
+      "lowContrastTextCount": 0
+    }
+  ],
+  "interaction": {
+    "receiptEscape": true,
+    "receiptDetailsSurvivePoll": true,
+    "mobileNavTabContained": true,
+    "mobileNavEscapeRestoresButton": true,
+    "largeAmountExactText": "999,999.999998",
+    "largeAmountViewportWidth": 320,
+    "largeAmountScrollWidth": 320,
+    "reducedMotionSectionsOpacity": 1
+  },
+  "screenshots": ".local/ttu",
+  "tests": {
+    "pass": 127,
+    "fail": 0,
+    "assertions": 943
+  }
+}
