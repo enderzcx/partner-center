@@ -1,0 +1,279 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { isAbsolute, join, resolve } from 'node:path';
+import { getAddress, isAddress, isHex } from 'viem';
+import { DEFAULT_MIN_AMOUNT } from './money.ts';
+import type { Address, Hex, SourceKind } from './types.ts';
+import { ServiceError } from './types.ts';
+
+export const CIRCLE_FUJI_USDC =
+  '0x5425890298aed601595a70AB815c96711a31Bc65' as Address;
+export const MERCHANT_ID = 'demo-merchant';
+export const PARTNER_ID = 'demo-partner';
+export const PARTNER_NAME = '演示推广者';
+export const DEFAULT_PORT = 4311;
+export const DEFAULT_TICK_MS = 30_000;
+export const DEFAULT_MATURITY_MS = 60_000;
+export const CHALLENGE_TTL_MS = 5 * 60_000;
+export const BODY_LIMIT = 16 * 1024;
+
+export type ChainConfig = {
+  rpcUrl: string;
+  chainId: 43113 | 31337;
+  contract: Address;
+  token: Address;
+  privateKey: Hex;
+  recipient?: Address;
+};
+
+export type RuntimeConfig = {
+  host: string;
+  port: number;
+  chain: ChainConfig;
+  source: SourceKind;
+  beefapiBaseUrl: string;
+  beefapiToken: string;
+  partnerUserId: number;
+  minAmount: bigint;
+  maturityMs: number;
+  tickMs: number;
+  dbPath: string;
+  lockPath: string;
+  publicDir: string;
+  merchantId: string;
+  partnerId: string;
+  partnerName: string;
+};
+
+const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1']);
+
+export function isLoopbackHost(host: string): boolean {
+  return LOOPBACK.has(host.replace(/^\[|\]$/g, '').toLowerCase());
+}
+
+export function assertLoopbackBind(host: string) {
+  if (!isLoopbackHost(host)) {
+    throw new Error(`拒绝绑定非本机地址 ${host}。结算服务只监听 127.0.0.1。`);
+  }
+}
+
+export function originOf(host: string, port: number): string {
+  const h = host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
+  return `http://${h}:${port}`;
+}
+
+export function networkMeta(chainId: 43113 | 31337, token: string) {
+  if (chainId === 43113) {
+    return {
+      name: 'Avalanche Fuji',
+      chainId,
+      explorer: 'https://testnet.snowtrace.io',
+      configured: true,
+      token,
+    };
+  }
+  return {
+    name: 'Local testnet',
+    chainId,
+    explorer: '',
+    configured: true,
+    token,
+  };
+}
+
+function requiredAddress(value: unknown, label: string): Address {
+  if (typeof value !== 'string' || !isAddress(value, { strict: false })) {
+    throw new Error(`${label} 不是有效地址。`);
+  }
+  return getAddress(value) as Address;
+}
+
+function requiredKey(value: unknown, label: string): Hex {
+  if (typeof value !== 'string' || !isHex(value) || value.length !== 66) {
+    throw new Error(`${label} 必须是 32 字节十六进制私钥。`);
+  }
+  return value.toLowerCase() as Hex;
+}
+
+function requiredRpc(value: unknown, chainId: 43113 | 31337): string {
+  if (typeof value !== 'string' || !/^https?:\/\//i.test(value)) {
+    throw new Error('必须提供明确的 RPC 地址。');
+  }
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error('RPC 地址无效。');
+  }
+  if (chainId === 31337 && !isLoopbackHost(url.hostname)) {
+    throw new Error('本地链 RPC 必须是本机回环地址。');
+  }
+  return value;
+}
+
+function intEnv(value: string | undefined, fallback: number, label: string): number {
+  if (value == null || value === '') return fallback;
+  if (!/^[0-9]+$/.test(value)) throw new Error(`${label} 必须是整数。`);
+  return Number(value);
+}
+
+export function runtimeConfig(
+  partial: Partial<RuntimeConfig> & { chain: ChainConfig },
+): RuntimeConfig {
+  const host = partial.host ?? '127.0.0.1';
+  assertLoopbackBind(host);
+  const chainId = partial.chain.chainId;
+  if (chainId !== 31337 && chainId !== 43113) {
+    throw new Error('只允许本地测试链 31337 或 Fuji 43113。');
+  }
+  return {
+    host,
+    port: partial.port ?? DEFAULT_PORT,
+    chain: {
+      ...partial.chain,
+      chainId,
+      contract: requiredAddress(partial.chain.contract, '结算合约'),
+      token: requiredAddress(partial.chain.token, '代币'),
+      privateKey: requiredKey(partial.chain.privateKey, '执行钱包私钥'),
+      recipient: partial.chain.recipient
+        ? requiredAddress(partial.chain.recipient, '测试收款地址')
+        : undefined,
+    },
+    source: partial.source ?? 'fixture',
+    beefapiBaseUrl: partial.beefapiBaseUrl ?? '',
+    beefapiToken: partial.beefapiToken ?? '',
+    partnerUserId: partial.partnerUserId ?? 1,
+    minAmount: partial.minAmount ?? DEFAULT_MIN_AMOUNT,
+    maturityMs: partial.maturityMs ?? DEFAULT_MATURITY_MS,
+    tickMs: partial.tickMs ?? DEFAULT_TICK_MS,
+    dbPath: partial.dbPath ?? join('.local', 'settlement.sqlite'),
+    lockPath: partial.lockPath ?? join('.local', 'settlement.lock'),
+    publicDir: partial.publicDir ?? join(import.meta.dir, '../public'),
+    merchantId: partial.merchantId ?? MERCHANT_ID,
+    partnerId: partial.partnerId ?? PARTNER_ID,
+    partnerName: partial.partnerName ?? PARTNER_NAME,
+  };
+}
+
+type FileConfig = Partial<ChainConfig> & { testOnly?: boolean };
+
+export function loadConfig(opts?: {
+  cwd?: string;
+  env?: Record<string, string | undefined>;
+}): RuntimeConfig {
+  const env = opts?.env ?? process.env;
+  const cwd = opts?.cwd ?? process.cwd();
+  const configPath = resolve(
+    cwd,
+    env.SETTLEMENT_CHAIN_CONFIG ?? join('.local', 'chain.json'),
+  );
+  let file: FileConfig | null = null;
+  if (existsSync(configPath)) {
+    try {
+      file = JSON.parse(readFileSync(configPath, 'utf8')) as FileConfig;
+    } catch {
+      throw new Error(`无法读取链配置 ${configPath}。`);
+    }
+  }
+
+  const chainIdRaw = env.SETTLEMENT_CHAIN_ID ?? file?.chainId;
+  const chainId = Number(chainIdRaw);
+  if (chainId !== 31337 && chainId !== 43113) {
+    throw new Error(
+      '未配置结算链，拒绝以模拟出款启动。请提供 .local/chain.json 或 Fuji 环境变量（仅 31337/43113）。',
+    );
+  }
+
+  const rpcUrl = requiredRpc(env.SETTLEMENT_RPC_URL ?? file?.rpcUrl, chainId);
+  const contract = requiredAddress(
+    env.SETTLEMENT_CONTRACT ?? file?.contract,
+    '结算合约',
+  );
+  const token = requiredAddress(env.SETTLEMENT_TOKEN ?? file?.token, '代币');
+
+  if (chainId === 43113 && getAddress(token) !== getAddress(CIRCLE_FUJI_USDC)) {
+    throw new Error(
+      `Fuji 代币必须固定为 Circle 官方测试 USDC ${CIRCLE_FUJI_USDC}。`,
+    );
+  }
+
+  let privateKey: Hex;
+  if (chainId === 43113) {
+    if (!env.SETTLEMENT_PRIVATE_KEY) {
+      throw new Error('Fuji 执行钱包私钥只能通过 SETTLEMENT_PRIVATE_KEY 提供，不能写在配置文件里。');
+    }
+    privateKey = requiredKey(env.SETTLEMENT_PRIVATE_KEY, '执行钱包私钥');
+  } else {
+    privateKey = requiredKey(
+      env.SETTLEMENT_PRIVATE_KEY ?? file?.privateKey,
+      '执行钱包私钥',
+    );
+  }
+
+  const recipientRaw = env.SETTLEMENT_RECIPIENT ?? file?.recipient;
+  const source = (env.SETTLEMENT_SOURCE ?? 'fixture') as SourceKind;
+  if (source !== 'fixture' && source !== 'beefapi') {
+    throw new Error('SETTLEMENT_SOURCE 只允许 fixture 或 beefapi。');
+  }
+
+  const publicDir = env.SETTLEMENT_PUBLIC_DIR
+    ? isAbsolute(env.SETTLEMENT_PUBLIC_DIR)
+      ? env.SETTLEMENT_PUBLIC_DIR
+      : resolve(cwd, env.SETTLEMENT_PUBLIC_DIR)
+    : join(import.meta.dir, '../public');
+
+  const cfg = runtimeConfig({
+    host: env.SETTLEMENT_HOST ?? '127.0.0.1',
+    port: intEnv(env.SETTLEMENT_PORT, DEFAULT_PORT, 'SETTLEMENT_PORT'),
+    chain: {
+      rpcUrl,
+      chainId,
+      contract,
+      token,
+      privateKey,
+      recipient: recipientRaw
+        ? requiredAddress(recipientRaw, '测试收款地址')
+        : undefined,
+    },
+    source,
+    beefapiBaseUrl: env.BEEFAPI_TEST_BASE_URL ?? '',
+    beefapiToken: env.SETTLEMENT_TEST_TOKEN ?? '',
+    partnerUserId: intEnv(env.SETTLEMENT_PARTNER_USER_ID, 1, 'SETTLEMENT_PARTNER_USER_ID'),
+    minAmount: env.SETTLEMENT_MIN_AMOUNT
+      ? BigInt(env.SETTLEMENT_MIN_AMOUNT)
+      : DEFAULT_MIN_AMOUNT,
+    maturityMs: intEnv(env.SETTLEMENT_MATURITY_MS, DEFAULT_MATURITY_MS, 'SETTLEMENT_MATURITY_MS'),
+    tickMs: intEnv(env.SETTLEMENT_TICK_MS, DEFAULT_TICK_MS, 'SETTLEMENT_TICK_MS'),
+    dbPath: resolve(cwd, env.SETTLEMENT_DB ?? join('.local', 'settlement.sqlite')),
+    lockPath: resolve(cwd, env.SETTLEMENT_LOCK ?? join('.local', 'settlement.lock')),
+    publicDir,
+  });
+
+  if (cfg.source === 'beefapi') {
+    if (!cfg.beefapiBaseUrl || !cfg.beefapiToken) {
+      throw new Error('beefapi 来源需要 BEEFAPI_TEST_BASE_URL 与 SETTLEMENT_TEST_TOKEN。');
+    }
+    if (cfg.beefapiToken.length < 32) {
+      throw new Error('SETTLEMENT_TEST_TOKEN 长度不足。');
+    }
+    let url: URL;
+    try {
+      url = new URL(cfg.beefapiBaseUrl);
+    } catch {
+      throw new Error('BEEFAPI_TEST_BASE_URL 无效。');
+    }
+    if (!isLoopbackHost(url.hostname)) {
+      throw new Error('BEEFAPI_TEST_BASE_URL 必须是本机回环地址。');
+    }
+  }
+  return cfg;
+}
+
+export function demoWalletAddress(config: RuntimeConfig): Address {
+  if (config.chain.chainId !== 31337) {
+    throw new ServiceError(403, '当前网络不能使用本地测试钱包。');
+  }
+  if (!config.chain.recipient) {
+    throw new ServiceError(400, '本地链未配置测试收款地址。');
+  }
+  return config.chain.recipient;
+}
