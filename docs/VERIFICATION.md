@@ -73,3 +73,5 @@ Ender 明确授权后，真实部署 Settlement、充值 1 测试 USDC，使用�
 - 独立 Grok UI审查 `20260918-152430-review-3bf4a062` 的四项发现已逐项复核修复：已付款未冻结恢复入口、completed重放、轮询DOM替换、创建请求重试编号。没有采纳把“已记入佣金”误写为“未记入”的建议文案。
 - 当前演示入口 `http://127.0.0.1:4314`，配套持久测试库在 `.local/orders-local/`；旧4311演示已停止以避免同一本地执行钱包并发签名。此轮没有新增 Fuji 转账。新的 Fuji 订单流程仍需明确单笔授权及收款钱包持有人在页面签名；此前Fuji单笔实测凭证保留，不替代本轮验证。
 - Go 独立审查 `20260918-152046-review-4eea4f06`：approve，无可执行发现。评审确认事务提取、订单唯一键回滚、支付事件幂等、冻结比例及双开关鉴权。限制保留：SQLite fixture 最大连接数1，多连接竞争与MySQL/PostgreSQL未做运行验证。
+- Ender 已追加授权本轮现有 Fuji 合约充值1测试USDC及10USD订单产生的1测试USDC付款。Fuji订单演示页已启动在 `http://127.0.0.1:4315`，独立持久库 `.local/orders-fuji/`。已创建 pending 订单 `fuji-order-demo-20260918-001`，冻结比例0.1；当前尚未绑定收款钱包，等待持有人签名，未进行本轮充值/付款。后续执行脚本 `.local/run-fuji-order.ts` 在签名前拒绝继续，严格核对唯一订单、指定收款地址、金额、来源结算单和原签名交易 journal。
+- 两个 Grok 开发/审查工作树已移除，任务回执归档在 `.local/grok-order-backend-receipts/` 和 `.local/grok-order-console-receipts/`；作者分支保留为本地审阅引用。
