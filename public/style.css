@@ -651,6 +651,14 @@ h2 {
   margin-top: 0;
 }
 
+.order-row .explorer-link {
+  margin-top: 8px;
+}
+
+.order-row .explorer-link + .explorer-link {
+  margin-top: 4px;
+}
+
 .tools {
   margin-top: 22px;
   padding-top: 8px;
