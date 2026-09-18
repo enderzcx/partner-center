@@ -16,6 +16,8 @@ let state = null,
 let ledgerSignature = null;
 let auth = { enabled: true, authenticated: false, role: null };
 let loginBusy = false;
+let authGeneration = 0;
+let fetchingGeneration = -1;
 $("app-shell").hidden = true;
 const escapeHTML = (v) =>
   String(v ?? "").replace(
@@ -157,6 +159,9 @@ function viewCopy() {
     : "查看收益和到账记录。";
 }
 function showLogin(message) {
+  authGeneration += 1;
+  selectedReceipt = null;
+  if ($("receipt").open) $("receipt").close();
   auth.authenticated = false;
   auth.role = null;
   state = null;
@@ -193,6 +198,7 @@ function applyAuthChrome() {
   $("account-bar").hidden = !authOn;
 }
 async function api(path, data) {
+  const requestGeneration = authGeneration;
   const response = await fetch(path, {
     method: data === undefined ? "GET" : "POST",
     credentials: "same-origin",
@@ -205,7 +211,7 @@ async function api(path, data) {
   } catch {
     throw new Error("服务没有返回有效结果，请重试。");
   }
-  if (response.status === 401 && auth.enabled && path !== "/api/auth/login") {
+  if (response.status === 401 && auth.enabled && path !== "/api/auth/login" && requestGeneration === authGeneration) {
     showLogin(
       typeof result.error === "string" && result.error
         ? result.error
@@ -452,11 +458,15 @@ function render() {
     "已同步 " + new Date().toLocaleTimeString("zh-CN", { hour12: false });
 }
 async function refresh() {
-  if (fetching) return;
+  const generation = authGeneration;
+  if (fetching && fetchingGeneration === generation) return;
   if (auth.enabled && !auth.authenticated) return;
   fetching = true;
+  fetchingGeneration = generation;
   try {
-    state = await api("/api/state");
+    const nextState = await api("/api/state");
+    if (generation !== authGeneration) return;
+    state = nextState;
     if (state && (state.role === "merchant" || state.role === "promoter")) {
       role = state.role;
       auth.role = state.role;
@@ -465,6 +475,7 @@ async function refresh() {
     render();
     if (!busy) lock(false);
   } catch (error) {
+    if (generation !== authGeneration) return;
     if (auth.enabled && !auth.authenticated) throw error;
     notice("同步失败：" + error.message, true);
     $("sync-time").textContent = state ? "数据未更新，请重试" : "尚未连接";
@@ -473,7 +484,7 @@ async function refresh() {
         '<div class="empty"><strong>无法读取结算记录</strong>请刷新后重试。</div>';
     throw error;
   } finally {
-    fetching = false;
+    if (fetchingGeneration === generation) fetching = false;
   }
 }
 function field(label, value, mono) {
@@ -659,13 +670,16 @@ $("login-form").addEventListener("submit", async (event) => {
   errorBox.textContent = "";
   try {
     const result = await api("/api/auth/login", { username, password });
+    authGeneration += 1;
+    state = null;
+    ledgerSignature = null;
     auth.enabled = true;
     auth.authenticated = true;
     auth.role = result.role;
     role = result.role;
     $("login-password").value = "";
-    showApp();
     await refresh();
+    if (state) showApp();
   } catch (error) {
     errorBox.textContent = error.message || "账号或密码不正确。";
     $("login-password").value = "";
@@ -702,8 +716,8 @@ async function bootstrap() {
     if (auth.enabled && (session.role === "merchant" || session.role === "promoter")) {
       role = session.role;
     }
-    showApp();
     await refresh();
+    if (state) showApp();
   } catch (error) {
     if (auth.enabled) showLogin(error.message);
     else notice("同步失败：" + error.message, true);
@@ -711,6 +725,6 @@ async function bootstrap() {
 }
 bootstrap().catch(() => {});
 setInterval(() => {
-  if (!busy && !document.hidden && (!auth.enabled || auth.authenticated))
+  if (!busy && !loginBusy && !document.hidden && (!auth.enabled || auth.authenticated))
     refresh().catch(() => {});
 }, 3000);
