@@ -1,0 +1,23 @@
+{
+  "origin": "https://partner.bflabs.app",
+  "image": "partner-demo:x402-v3",
+  "imageId": "sha256:d667f7712cf09dce55331e08e671a2bba2be994a6efe5b07615f5d8e3aa949ff",
+  "codeCommit": "e88dd45",
+  "sourceCommit": "9195e27074",
+  "healthy": true,
+  "tlsVerified": true,
+  "existingGlobalSiteHttp": 200,
+  "tests": {
+    "pass": 110,
+    "fail": 0,
+    "assertions": 844
+  },
+  "localEvmEndToEnd": "PASS",
+  "public402Quote": "PASS",
+  "fujiX402Payment": "not executed; payer choice pending",
+  "newChainPayments": 0,
+  "preparedOrder": "fuji-x402-20260918-001",
+  "treasuryUSDC": "19",
+  "pairedBackup": "/home/ubuntu/partner-demo/backups/pre-x402-20260918",
+  "checkedAt": "2026-09-18T10:42:45.739720+00:00"
+}

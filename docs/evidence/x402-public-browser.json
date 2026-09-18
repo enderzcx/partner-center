@@ -1,0 +1,10 @@
+{
+  "result": "PASS",
+  "origin": "https://partner.bflabs.app",
+  "orderText": "global_6…5a2013\n已到账\n实付 10.00 USD\n锁定比例 10%\n佣金 1.00 USDC\n\n已到账，可在下方结算记录查看回执。\n\nglobal_5…c1e10e\n已到账\n实付 10.00 USD\n锁定比例 10%\n佣金 1.00 USDC\n\n已到账，可在下方结算记录查看回执。\n\nglobal_3…ee15f4\n待付款\n应付 10 测试 USDC\n锁定比例 10%\n佣金 确认后入账\n\n从付款钱包支付测试 USDC，到账后按本单比例返佣。\n\n支付 10 测试 USDC",
+  "paid": "2.00",
+  "treasury": "19.00",
+  "payButton": "支付 10 测试 USDC",
+  "merchantVisible": true,
+  "signatureRequested": false
+}

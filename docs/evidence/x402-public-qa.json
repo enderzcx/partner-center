@@ -1,0 +1,41 @@
+{
+  "result": "PASS",
+  "origin": "https://partner.bflabs.app",
+  "requestId": "fuji-x402-20260918-001",
+  "quote": {
+    "x402Version": 2,
+    "error": "PAYMENT-SIGNATURE header is required",
+    "resource": {
+      "url": "https://partner.bflabs.app/api/x402/orders/fuji-x402-20260918-001/pay",
+      "description": "测试订单付款",
+      "mimeType": "application/json"
+    },
+    "accepts": [
+      {
+        "scheme": "exact",
+        "network": "eip155:43113",
+        "amount": "10000000",
+        "asset": "0x5425890298aed601595a70AB815c96711a31Bc65",
+        "payTo": "0x5c905e43e0BB381534530d5e05DF56ab1f420899",
+        "maxTimeoutSeconds": 300,
+        "extra": {
+          "name": "USD Coin",
+          "version": "2"
+        }
+      }
+    ]
+  },
+  "payerSignature": "pending owner selection",
+  "newChainPayments": 0,
+  "paidUSDC": "2",
+  "treasuryUSDC": "19",
+  "checks": [
+    "anonymous denial",
+    "merchant quote402 v2 exact Fuji10USDC",
+    "existing two receipts preserved",
+    "legacy creation replay remains legacy",
+    "synthetic payment bypass403",
+    "promoter cannot pay",
+    "quote does not move funds"
+  ]
+}

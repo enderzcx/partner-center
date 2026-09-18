@@ -1,0 +1,20 @@
+// Login credentials over stdin only; no signatures, private keys or new chain payments.
+import assert from 'node:assert/strict';
+let stage='input';let cookies=[];
+const origin='https://partner.bflabs.app';
+const call=async(path,{cookie,body}={})=>{const r=await fetch(origin+path,{method:body===undefined?'GET':'POST',headers:{...(cookie?{Cookie:cookie}:{}),...(body===undefined?{}:{Origin:origin,'Content-Type':'application/json'})},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(30000)});return {status:r.status,data:await r.json(),headers:r.headers};};
+try{
+ const access=await Bun.stdin.json();
+ const login=async(name)=>{const a=access.accounts.find(a=>a.username===name);const r=await call('/api/auth/login',{body:{username:a.username,password:a.password}});assert.equal(r.status,200);const cookie=r.headers.get('set-cookie').split(';')[0];cookies.push(cookie);return cookie;};
+ stage='anonymous';assert.equal((await call('/api/state')).status,401);
+ stage='merchant';const merchant=await login('merchant');const before=(await call('/api/state',{cookie:merchant})).data;assert.equal(before.x402.enabled,true);assert.equal(before.network.chainId,43113);assert.equal(before.x402.asset.toLowerCase(),'0x5425890298aed601595a70ab815c96711a31bc65');assert.equal(before.x402.payTo.toLowerCase(),'0x5c905e43e0bb381534530d5e05df56ab1f420899');assert.ok(BigInt(before.partner.paid)>=2000000n);assert.equal(before.partner.pending,'0');
+ for(const hash of ['0x4d90fbc94781a485ff31834e98f43161e3c257b68b450771694d7c855f2f9a48','0x4d42f62f378b4d8cac95ce2f5671ba0f83048188073353ebf12d23155d9c5891'])assert.ok(before.payouts.some(p=>p.txHash===hash&&p.status==='completed'));
+ stage='legacy';const old=await call('/api/demo/orders',{cookie:merchant,body:{request_id:'fuji-order-demo-20260918-001'}});assert.equal(old.status,200);assert.equal(old.data.order.payment,undefined);
+ stage='prepare';const requestId='fuji-x402-20260918-001';const created=await call('/api/demo/orders',{cookie:merchant,body:{request_id:requestId}});assert.equal(created.status,200);assert.equal(created.data.order.paymentAmountMinor,'1000');assert.equal(created.data.order.payment.status,'required');
+ const path='/api/x402/orders/'+requestId+'/pay';const quote=await call(path,{cookie:merchant,body:{}});assert.equal(quote.status,402);const requirements=JSON.parse(Buffer.from(quote.headers.get('payment-required'),'base64').toString('utf8'));assert.equal(requirements.x402Version,2);assert.equal(requirements.resource.url,origin+path);assert.equal(requirements.accepts[0].amount,'10000000');assert.equal(requirements.accepts[0].network,'eip155:43113');assert.equal(requirements.accepts[0].payTo.toLowerCase(),before.x402.payTo.toLowerCase());
+ stage='bypass';assert.equal((await call('/api/demo/orders/'+requestId+'/pay',{cookie:merchant,body:{}})).status,403);
+ stage='promoter';const promoter=await login('promoter');const ps=(await call('/api/state',{cookie:promoter})).data;assert.equal(ps.orders,undefined);assert.equal(ps.wallet.token,'');assert.equal((await call(path,{cookie:promoter,body:{}})).status,403);
+ stage='after';const after=(await call('/api/state',{cookie:merchant})).data;assert.equal(after.partner.paid,before.partner.paid);assert.equal(after.payouts.length,before.payouts.length);assert.equal(after.wallet.token,before.wallet.token);
+ console.log(JSON.stringify({result:'PASS',origin,requestId,quote:requirements,payerSignature:'pending owner selection',newChainPayments:0,paidUSDC:String(Number(after.partner.paid)/1e6),treasuryUSDC:String(Number(after.wallet.token)/1e6),checks:['anonymous denial','merchant quote402 v2 exact Fuji10USDC','existing two receipts preserved','legacy creation replay remains legacy','synthetic payment bypass403','promoter cannot pay','quote does not move funds']},null,2));
+}catch{console.error(JSON.stringify({result:'FAIL',stage,details:'Sensitive error details suppressed'}));process.exitCode=1;}
+finally{for(const cookie of cookies)try{await call('/api/auth/logout',{cookie,body:{}});}catch{}}

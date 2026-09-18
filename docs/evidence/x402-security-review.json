@@ -1,0 +1,32 @@
+{
+  "verdict": "needs-attention",
+  "summary": "Independent read-only review of b5b9931 vs 4ea7442 (docs/X402.md: opt-in Fuji test USDC x402 v2 exact, single merchant/partner, no production/mainnet). Facilitator output is not trusted: award runs only after AuthorizationUsed+Transfer on the configured token/payTo/amount/nonce, and Fuji inspect uses the same finalized check as existing commission payouts. Session/Origin/Host, EIP-712 recover, nonce uniqueness, synthetic-pay block for x402 rows, recipient snapshot, and source writeback retry are real. Host 2048-scan concern is not a realistic miss under the current 300s validBefore: scanFrom is first-settle head (not create time), findAuthorization always re-scans that original prefix, and scanTo is unused metadata. Source ledger ownership is unchanged: Go test DB still owns pay/reserve; settlement fingerprints chain/source/token/contract; x402 off cannot synthetic-pay an existing x402 row; reserve recipient stays the snapshotted wallet. Actionable defect: confirmChain can permanently blockX402 a submitted payment when facilitator returns success but inspect is still pending/missing after expiry, which stops the documented same-auth recovery. Not a happy-path Fuji blocker if finalized works and the user retries while the tx is already finalized. Explicit demo limits, not defects: single merchant, EOA EIP-3009 only, request-based recovery, no refunds, dedicated loopback source DB, no public Fuji payer yet. Do not treat this as shipped public.",
+  "findings": [
+    {
+      "severity": "medium",
+      "title": "Expired confirmChain permanently blocks recovery while chain evidence is only pending",
+      "body": "docs/X402.md requires timeout/retry to resume the original authorization without a second charge. settlePinned will recover via logs before calling the facilitator, which is correct when inspectReceipt already returns ok. The failure mode is: facilitator kind=success, inspectHash/recoverOnChain see the AuthorizationUsed log but inspectReceipt is still pending (finalized lag) or missing, validBefore has passed, confirmChain calls blockX402. After that, pay() hard-fails 409 on blocked and never awards, even once the same tx is finalized. findAuthorization only returns a hash when inspectReceipt.ok; pending logs are treated as not found, so the known facilitator tx hash is also not stored on the submitted row. Repro: pin a valid auth; mock facilitator success with a real hash; inspectReceipt stays {ok:false, reason:'pending'}; first pay before expiry returns 502 and status submitted; advance now past validBefore; second pay hits confirmChain and 409 blocked; then flip inspect to ok and retry still 409 with payCalls=0. Healthy Fuji finality of seconds plus recover-first on retry avoids this if inspect is already ok; the code still contradicts the recovery contract whenever inspect stays pending across expiry or an idempotent facilitator replay returns success. Existing payout inspect uses the same finalized tag, so this is not proof the public RPC is broken. Tests cover expired recovery only after status=settled (source writeback fail), not pending inspect.",
+      "file": "src/x402/service.ts",
+      "line_start": 184,
+      "line_end": 208,
+      "confidence": 0.86,
+      "recommendation": "Delete blockX402 from confirmChain. Keep status submitted and 502 while inspect is pending/missing so later retries can still settle from logs or a stored candidate hash. Optionally persist facilitator.transaction on submitted without marking settled, and inspect that hash first on retry. Reserve blocked for mismatch/reverted only. Add a test: pending inspect past validBefore stays 502, then completes with settleCalls unchanged once inspect is ok."
+    },
+    {
+      "severity": "low",
+      "title": "x402Enabled blocks synthetic continue-settlement for non-x402 paid orders",
+      "body": "payDemoOrder forbids /api/demo/orders/:id/pay when x402Enabled is true, even if there is no x402_orders row. That correctly stops pending simulated checkout. It also 403s legacy simulated paid orders that still need awardDemoOrder (source paid / reserve retry / missing payout). UI orderUsesX402 is false for paid rows without payment.mode, so the leftover button is still 继续结算 and hits the synthetic route. The two documented historical completed orders with receipts are unaffected (canPay is false once payout.status===completed). Flag-off bypass of an existing x402 row is already correctly blocked by getX402Order.",
+      "file": "src/server.ts",
+      "line_start": 446,
+      "line_end": 453,
+      "confidence": 0.78,
+      "recommendation": "Block synthetic pay when getX402Order(requestId) exists, or when x402 is on and the source order is still pending. Allow awardDemoOrder for pre-x402 paid rows that have no x402 row."
+    }
+  ],
+  "next_steps": [
+    "Repair confirmChain so pending/missing after expiry stays retryable (no blockX402); persist a candidate tx hash if you want inspect without a log rescan.",
+    "Add the pending-inspect-past-validBefore recovery test; do not treat the 2048 prefix scan as a miss under 300s Fuji validity.",
+    "Keep SETTLEMENT_X402_ENABLED off until a real Fuji payer signs; local Ganache e2e is not public Fuji.",
+    "Treat as demo limits, not bugs: single merchant, EOA EIP-3009, manual request recovery, no refunds, loopback dedicated source DB."
+  ]
+}

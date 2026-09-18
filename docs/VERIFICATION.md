@@ -120,3 +120,23 @@ Ender 明确授权后，真实部署 Settlement、充值 1 测试 USDC，使用�
 - Ego TaskSpace243：从浏览器创建订单、触发402、注入仅用于本地的EIP1193桥接，由Ganache实际签名，页面提交付款，最终收到1测试代币佣金。没有绕过产品CSP。Ganache闲置后区块时间停止导致首轮gas模拟拒绝validAfter；推进本地区块后原授权重试成功，测试facilitator已增加推进本地区块时间，产品代码未放宽时间校验。
 - 1440/390/320px DOM布局无横向溢出，付款按钮文本完整，收款与出款回执分开显示；证据 `evidence/x402-local-browser.json`。本轮一次截图调用仍出现Page.captureScreenshot超时，没有截图验收证据。
 - 独立G3安全/结构审查任务 `20260918-181229-review-63be7539` 针对b5b9931 vs4ea7442，尚在运行。公网仍为旧public-v2；尚未执行新的真实Fuji x402付款。付款方选择已向Ender询问，未收到答复前不使用原出款私钥代签买家付款。
+
+
+### x402 审查处理与最终本地门禁
+
+独立审查发现两项：授权过期但付款仍pending时不应永久blocked；已支付但尚未完成结算的旧模拟订单应继续恢复。主会话分别复现409卡死与403拒绝，修正为保留原授权并恢复原链上结果、只允许无x402记录且来源已paid的旧单继续结算。另复现旧单创建重放被错误标为x402，已保留旧模拟历史。开关关闭仍不能绕过已有x402订单付款。
+
+最终代码提交 `e88dd45`，`bun run typecheck`通过，`bun test` 110 pass / 0 fail / 844 assertions；修复后 `bun scripts/verify-x402-local.ts` 再次完整通过。原始审查见 `evidence/x402-security-review.json`，其行号和finding针对b5b9931，修正证据以上述最终门禁为准。2048块扫描限制在本次Fuji五分钟授权范围保留，不宣称通用链或无限历史恢复能力。
+
+发布候选仅使用 `partner-demo:x402-v3`（本地v1/v2是未完成审查修复的候选，禁止发布）。开启功能用于提供受控402报价；付款本身仍以钱包持有人签名或Ender明确选择现有测试钱包授权为条件。
+
+
+### x402 公网入口已部署，真实付款待签名
+
+公网已部署 `partner-demo:x402-v3`，代码e88dd45，镜像摘要 `sha256:d667f7712cf09dce55331e08e671a2bba2be994a6efe5b07615f5d8e3aa949ff`。容器healthy、restart=0，HTTPS200且TLS验证成功；原global.beefapi.com仍200。升级前只存在两笔completed付款，停服后成对备份到 `/home/ubuntu/partner-demo/backups/pre-x402-20260918`，旧public-v2镜像和配置保留。
+
+公网商家已准备唯一待付款订单 `fuji-x402-20260918-001`，402报价为exact / eip155:43113 / 官方FujiUSDC / 10000000最小单位 / 现有结算合约。未提交PAYMENT-SIGNATURE；新增链上付款0，原两笔回执保留，累计paid=2USDC、合约余额19USDC。模拟支付该新单403，推广者付款403，匿名读数据401，旧已完成订单创建重放未改标x402。
+
+实际浏览器商家登录后读回付款按钮“支付 10 测试 USDC”、累计到账2.00、结算资金19.00；未请求真实钱包签名。证据 `evidence/x402-public-qa.json`、`evidence/x402-public-browser.json`、`evidence/x402-release.json`。不能把这些报价/权限检查称为已经完成真实Fuji x402收款。
+
+Grok两个开发工作树已删除，作者分支保留，回执归档到本任务 `.local/worker-receipts/`。代码仅本地提交，没有推送远端。集成工作树暂保留用于后续真实付款验收；本地EVM/来源进程已停止，Ego TaskSpace243已结束。剩余唯一实测前置是Ender选择付款钱包：授权现有0x2817…8C94支付一次10测试USDC并返佣1，或由本人在页面签名。未收到选择，不代签买家付款。
