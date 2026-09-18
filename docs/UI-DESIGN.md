@@ -1,6 +1,6 @@
 # 结算台 UI
 
-独立产品名仍是「结算台」，不是 BeefAPI 控制台。视觉对齐海外站 global console，不是另一套暖色或通用后台。
+产品名为「结算台」，设计系统复用 BeefAPI 海外站 global console。
 
 ## 参照
 
@@ -11,7 +11,7 @@
 - `web/src/pages/GlobalConsole/GlobalInvitation.jsx`
 - `web/src/pages/GlobalConsole/invitation.css`
 
-路径在 BeefAPI 工作树 `/Volumes/ExternalWork/Worktrees/beefapi/fuji-settlement/`。旧的暖白/橙色记忆作废。
+路径在 BeefAPI 工作树 `/Volumes/ExternalWork/Worktrees/beefapi/fuji-settlement/`。以当前源码和线上样式为准，旧暖色记录不作本轮依据。
 
 ## 令牌
 
@@ -41,8 +41,16 @@
 
 页面不再出现：本机隔离网络、Chain ID（页头）、独立结算演示、测试身份切换、仅用于本地演示、回写原账本、已预留、待记账、已回写、SETTLEMENT / OVERVIEW、每笔收益有据可查、收益到账清楚可见、01/02 装饰。
 
-保留一处资金说明：`测试环境 · 资金无实际价值`。网络只写 `Fuji 测试网` / `测试网络`。链、代币、完整地址放在回执里。
+保留一处资金说明：`资金无实际价值`（与测试网络名称同栏）。网络只写 `Fuji 测试网` / `测试网络`。链、代币、完整地址放在回执里。
 
-## 本包未做的验证
+## 主会话整合与 TTU 验收
 
-字体文件和 `/fonts/` 静态放行由父任务处理。浏览器 320 / 375 / 390 / 1440 实机检查由父任务做。本包不声称截图或浏览器通过。
+- 2026-09-18 线上 `global.beefapi.com` 读回的 canvas/accent/字体与源代码一致，四份参考文件在 `ae1b6fb224` 至 `18005f3013` 无差异。
+- 本地字体资源 HTTP200、MIME font/woff2，浏览器确认 Schibsted Grotesk 与 Geist Mono 都已 loaded；原 CSP 保持 self，不新增第三方字体请求。
+- 1440 / 390 / 375 / 320px 检查：没有横向溢出或越界元素；正文可见字号不低于11px。
+- 手机指标沿用邀请页的首项通栏、其余分栏结构。去掉重复身份/演示说明，必要资金提示只保留一处。测试消费划转后不再参与结算的后果，放在对应操作旁。
+- 320px 金额列临时放入 `999,999.999998` 做布局探针后立即恢复，修正后 scrollWidth=clientWidth=127；不截断或四舍五入金额。回执完整地址/哈希保留，弹层无水平溢出。
+- 浏览器实际操作：暂停；非法金额 -1 显示邻近提示；添加1单位测试收益保持可用；恢复后自动到账，累计由10变11；两个视图切换和回执打开正常。
+- `node --check public/app.js` 与 `git diff --check` 通过；新增字体静态路由后 `bun test tests/http.test.ts` 6项通过。资金逻辑没有变更。
+
+截图保留在 `.local/overseas-ui-{1440,390,375}.png`、`.local/overseas-ui-receipt-320.png`。Grok 作者提交 `e20fd12`，主会话整合为 `77acf2d`，再做上述TTU和窄屏修正。未公开部署。

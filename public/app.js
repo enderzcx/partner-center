@@ -77,14 +77,10 @@ function notice(message, error = false) {
 }
 function viewCopy() {
   const merchant = role === "merchant";
-  $("identity").textContent = merchant ? "商家" : "推广者";
   $("page-title").textContent = merchant ? "结算" : "我的收益";
   $("page-description").textContent = merchant
-    ? "查看可结算收益和出款进度。"
+    ? "查看可用收益和出款进度。"
     : "查看收益和到账记录。";
-  const name = state?.partner?.name || state?.partner?.id || "";
-  $("view-label").textContent = name;
-  $("view-label").hidden = !name;
 }
 async function api(path, data) {
   const response = await fetch(path, {
@@ -169,7 +165,12 @@ function renderControls() {
     ? "可用收益满 " + precise(state.minAmount) + " USDC 后自动结算。"
     : "";
   $("min-description").hidden = !fixture;
-  $("source-name").textContent = fixture ? "测试数据" : "接入方 BeefAPI";
+  $("transfer-description").textContent =
+    "转入后用于测试消费，不再参与结算。当前余额 " +
+    precise(state.partner.consumed) +
+    " USDC。";
+  $("source-line").hidden = fixture;
+  $("source-name").textContent = fixture ? "测试收益" : "付款方 BeefAPI";
   $("source-description").textContent = fixture
     ? role === "merchant"
       ? ""
@@ -212,7 +213,7 @@ function render() {
         '<div class="empty"><strong>还没有结算记录</strong>出款开始后，进度和回执会显示在这里。</div>';
     else
       $("ledger-content").innerHTML =
-        '<table class="table"><thead><tr><th scope="col">结算单</th><th scope="col" class="number">金额</th><th scope="col">收款钱包</th><th scope="col" class="status-cell">状态</th></tr></thead><tbody>' +
+        '<table class="table"><thead><tr><th scope="col">结算单</th><th scope="col" class="number">金额 · USDC</th><th scope="col">收款钱包</th><th scope="col" class="status-cell">状态</th></tr></thead><tbody>' +
         rows
           .map(
             (p) =>
@@ -222,7 +223,7 @@ function render() {
               escapeHTML(short(p.id)) +
               "<span>" +
               escapeHTML(time(p.createdAt)) +
-              " · 查看回执</span></button></td><td class=\"number\">" +
+              ' · 查看回执</span></button></td><td class="number">' +
               escapeHTML(precise(p.amount)) +
               '</td><td title="' +
               escapeHTML(p.recipient) +
@@ -280,7 +281,7 @@ function renderReceipt(id) {
   const networkName = fuji ? "Fuji 测试网" : "测试网络";
   let fields =
     field("结算单号", p.id, true) +
-    field("接入单号", p.sourceId || "暂无单号", true) +
+    field("业务单号", p.sourceId || "暂无单号", true) +
     field("网络", networkName + " · " + n.chainId, true) +
     field("代币", n.token || "暂无代币地址", true) +
     field("收款地址", p.recipient, true) +
@@ -327,11 +328,7 @@ $("pause").addEventListener("click", () =>
   ),
 );
 $("run").addEventListener("click", () =>
-  action(
-    $("run"),
-    () => api("/api/admin/run", {}),
-    "已检查结算，请查看记录。",
-  ),
+  action($("run"), () => api("/api/admin/run", {}), "已检查结算，请查看记录。"),
 );
 $("auto").addEventListener("click", () =>
   action(

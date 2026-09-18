@@ -59,18 +59,13 @@
             我的收益
           </button>
         </nav>
-        <div class="sidebar-bottom">
-          <span class="workspace-label">测试工作区</span>
-          <span id="identity">商家</span>
-        </div>
       </aside>
       <div class="workspace">
         <main id="main">
           <header class="page-heading">
             <div>
               <h1 id="page-title">结算</h1>
-              <p id="page-description">查看可结算收益和出款进度。</p>
-              <p id="view-label" class="view-label" hidden></p>
+              <p id="page-description">查看可用收益和出款进度。</p>
             </div>
             <button id="refresh" class="button quiet" type="button">
               <svg
@@ -91,6 +86,7 @@
             </button>
           </header>
           <div class="network-bar">
+            <span class="test-notice">资金无实际价值</span>
             <span
               ><span class="dot"></span
               ><strong id="network-name">正在读取网络</strong></span
@@ -111,22 +107,22 @@
           ></div>
           <div class="summary" aria-label="收益概览">
             <div class="metric">
-              <span>可结算收益 <small>USDC</small></span
+              <span>可用收益 <small>USDC</small></span
               ><strong id="available">···</strong>
-              <p>尚未进入出款</p>
+              <p>尚未用于付款</p>
             </div>
             <div class="metric">
               <span>结算中 <small>USDC</small></span
               ><strong id="pending">···</strong>
-              <p>已提交，等待到账</p>
+              <p>等待付款或确认</p>
             </div>
             <div class="metric">
               <span>累计到账 <small>USDC</small></span
               ><strong id="paid">···</strong>
-              <p>已付款，记录已更新</p>
+              <p>已完成的付款</p>
             </div>
           </div>
-          <p class="source-line">
+          <p id="source-line" class="source-line">
             <strong id="source-name">读取中</strong>
             <span id="source-description">正在读取</span>
           </p>
@@ -142,18 +138,14 @@
             <dl class="balances">
               <div>
                 <dt>结算资金余额</dt>
-                <dd>
-                  <span id="token-balance">···</span> <small>USDC</small>
-                </dd>
+                <dd><span id="token-balance">···</span> <small>USDC</small></dd>
               </div>
               <div>
                 <dt>网络手续费余额</dt>
                 <dd><span id="gas-balance">···</span> <small>AVAX</small></dd>
               </div>
             </dl>
-            <p class="subtle">
-              暂停后不再发起付款，已提交的付款会继续确认。
-            </p>
+            <p class="subtle">暂停后不再发起付款，已提交的付款会继续确认。</p>
             <div class="actions">
               <button class="button primary" id="run" type="button" disabled>
                 执行结算
@@ -164,9 +156,7 @@
             </div>
             <details id="fixture-controls" class="tools" hidden>
               <summary>演示工具</summary>
-              <label for="commission-amount"
-                >金额 <small>USDC</small></label
-              >
+              <label for="commission-amount">金额 <small>USDC</small></label>
               <form id="commission-form" class="input-action">
                 <input
                   id="commission-amount"
@@ -206,9 +196,8 @@
             </div>
             <details id="transfer-controls" class="tools" hidden>
               <summary>演示工具</summary>
-              <label for="transfer-amount"
-                >金额 <small>USDC</small></label
-              >
+              <p id="transfer-description" class="subtle"></p>
+              <label for="transfer-amount">金额 <small>USDC</small></label>
               <form id="transfer-form" class="input-action">
                 <input
                   id="transfer-amount"
@@ -222,7 +211,12 @@
                 <button class="button" type="submit">划入余额</button>
               </form>
               <p id="transfer-error" class="field-error" role="alert"></p>
-              <button class="button quiet" id="demo-wallet" type="button" hidden>
+              <button
+                class="button quiet"
+                id="demo-wallet"
+                type="button"
+                hidden
+              >
                 使用本地测试钱包
               </button>
             </details>
@@ -237,8 +231,7 @@
             </div>
           </section>
           <footer>
-            <span>测试环境 · 资金无实际价值</span
-            ><span id="sync-time">等待首次同步</span>
+            <span id="sync-time">等待首次同步</span>
           </footer>
         </main>
       </div>

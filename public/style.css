@@ -36,8 +36,7 @@
   --display:
     "Schibsted Grotesk", "Helvetica Neue", Arial, "PingFang SC",
     "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", sans-serif;
-  --mono:
-    "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  --mono: "Geist Mono", "SFMono-Regular", Menlo, Consolas, monospace;
   --text-2xs: 11px;
   --text-xs: 12px;
   --text-sm: 13px;
@@ -63,7 +62,6 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  overflow-x: clip;
 }
 
 body {
@@ -204,7 +202,7 @@ button:active:not(:disabled) {
 .sidebar-bottom {
   margin-top: auto;
   padding: 14px 22px 8px;
-  color: var(--dim);
+  color: var(--soft);
   font-size: var(--text-sm);
 }
 
@@ -276,7 +274,7 @@ p {
 }
 
 .page-heading .view-label {
-  color: var(--dim);
+  color: var(--soft);
   font-size: var(--text-sm);
 }
 
@@ -370,13 +368,13 @@ p {
 }
 
 .metric > span {
-  color: var(--dim);
+  color: var(--soft);
   font-size: var(--text-sm);
 }
 
 .metric small {
   margin-left: 6px;
-  color: var(--dim);
+  color: var(--soft);
   font-size: var(--text-2xs);
 }
 
@@ -481,7 +479,7 @@ h2 {
 }
 
 .balances small {
-  color: var(--dim);
+  color: var(--soft);
   font-family: var(--display);
   font-size: var(--text-2xs);
 }
@@ -619,7 +617,7 @@ h2 {
   padding: 13px 10px;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  color: var(--dim);
+  color: var(--soft);
   font-size: var(--text-2xs);
   font-weight: 600;
 }
@@ -706,7 +704,7 @@ footer {
   margin-top: 28px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
-  color: var(--dim);
+  color: var(--soft);
   font-size: var(--text-2xs);
 }
 
@@ -758,7 +756,7 @@ dialog h2 {
 }
 
 .receipt-fields dt {
-  color: var(--dim);
+  color: var(--soft);
   font-size: var(--text-2xs);
   font-weight: 600;
 }
@@ -875,7 +873,7 @@ dialog h2 {
 
   .sidebar-bottom #identity::before {
     content: " · ";
-    color: var(--dim);
+    color: var(--soft);
   }
 
   .sidebar-bottom #identity {
@@ -900,7 +898,14 @@ dialog h2 {
   }
 
   .summary {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .metric:first-child {
+    grid-column: 1 / -1;
+  }
+  .metric:nth-child(3) {
+    border-left: 1px solid var(--line);
   }
 
   .metric + .metric {
@@ -926,9 +931,9 @@ dialog h2 {
   }
 
   .network-bar {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 4px;
+    align-items: center;
+    flex-direction: row;
+    gap: 8px;
   }
 
   .input-action {
@@ -976,5 +981,51 @@ dialog h2 {
 
   button:active:not(:disabled) {
     transform: none;
+  }
+}
+
+.network-bar {
+  flex-wrap: wrap;
+}
+.network-bar > span:first-child {
+  order: 1;
+  margin-left: auto;
+}
+.test-notice {
+  font-size: var(--text-xs);
+  color: var(--soft);
+}
+footer {
+  justify-content: flex-end;
+}
+
+@media (max-width: 760px) {
+  .metric:nth-child(3) {
+    border-left: 1px solid var(--line);
+  }
+}
+
+.address {
+  word-break: break-all;
+  text-wrap: balance;
+}
+@media (max-width: 760px) {
+  .table th:first-child {
+    width: 32%;
+  }
+  .table th:nth-child(2) {
+    width: 44%;
+  }
+  .table th:last-child {
+    width: 24%;
+  }
+  .table .badge {
+    display: inline-block;
+    max-width: 100%;
+    white-space: normal;
+    text-wrap: balance;
+  }
+  .receipt-button {
+    text-wrap: balance;
   }
 }
