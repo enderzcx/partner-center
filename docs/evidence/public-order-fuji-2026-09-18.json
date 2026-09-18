@@ -1,0 +1,65 @@
+{
+  "result": "PASS",
+  "origin": "https://partner.bflabs.app",
+  "chainId": 43113,
+  "order": {
+    "requestId": "6876fdb7-40e2-472a-9f2a-0b699f349686",
+    "tradeNo": "global_5d5ab99391c54bd888d44dfb75c1e10e",
+    "paymentAmountMinor": "1000",
+    "commissionRate": "0.1",
+    "commissionUsdc": "1000000",
+    "status": "paid",
+    "recipient": "0x831C5C93a221D8508ad4808C2A64D58B15f77c85",
+    "error": null
+  },
+  "payout": {
+    "id": "0x1bfbbffdaeb62979bf1bd6deab3109e6a0d93646fef20591fa23902c8b08b279",
+    "sourceId": "beefapi:order-6876fdb7-40e2-472a-9f2a-0b699f349686:2",
+    "recipient": "0x831C5C93a221D8508ad4808C2A64D58B15f77c85",
+    "amount": "1000000",
+    "status": "completed",
+    "txHash": "0x4d42f62f378b4d8cac95ce2f5671ba0f83048188073353ebf12d23155d9c5891",
+    "error": null,
+    "createdAt": 1789724096000
+  },
+  "receipt": {
+    "status": "success",
+    "blockNumber": "58459415",
+    "finalizedBlock": "58459424"
+  },
+  "treasuryUSDC": "19",
+  "sourceBalances": {
+    "id": "demo-partner",
+    "name": "演示推广者",
+    "wallet": "0x831C5C93a221D8508ad4808C2A64D58B15f77c85",
+    "autoSettle": false,
+    "available": "0",
+    "pending": "0",
+    "paid": "2000000",
+    "consumed": ""
+  },
+  "checks": [
+    "public browser order creation",
+    "public browser simulated payment confirmation",
+    "automatic payout",
+    "finalized Paid and USDC Transfer match",
+    "source completed and pending zero",
+    "completed order replay unchanged",
+    "promoter browser paid amount and receipt"
+  ],
+  "newPayments": 1,
+  "replay": {
+    "status": 200,
+    "count": 2,
+    "paid": "2000000",
+    "pending": "0",
+    "treasury": "19000000",
+    "hash": "0x4d42f62f378b4d8cac95ce2f5671ba0f83048188073353ebf12d23155d9c5891"
+  },
+  "promoter": {
+    "paid": "2.00",
+    "merchantHidden": true,
+    "orderHidden": true,
+    "receiptVisible": true
+  }
+}
