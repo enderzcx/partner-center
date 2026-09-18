@@ -162,6 +162,7 @@ export async function validatePaymentPayload(input: {
   requestId: string;
   requirements: X402PaymentRequirements;
   nowMs: number;
+  allowExpiredPinned?: boolean;
 }): Promise<X402PaymentPayload> {
   const row = asRecord(input.raw);
   if (row.x402Version !== X402_VERSION) {
@@ -184,7 +185,7 @@ export async function validatePaymentPayload(input: {
   if (validAfter > nowSec) {
     throw new ServiceError(400, "付款信息无效。");
   }
-  if (validBefore <= nowSec) {
+  if (validBefore <= nowSec && !input.allowExpiredPinned) {
     throw new ServiceError(400, "付款授权已过期。");
   }
   const maxValidBefore =

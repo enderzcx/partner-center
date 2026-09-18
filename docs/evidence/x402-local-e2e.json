@@ -1,0 +1,43 @@
+{
+  "result": "PASS",
+  "network": "isolated Ganache chain43113; NOT public Fuji",
+  "sdk": "@x402/core + @x402/evm 2.26.0",
+  "requestId": "local-x402-e2e-001",
+  "payerUSDC": "90",
+  "treasuryUSDC": "9",
+  "recipientUSDC": "1",
+  "sourceBalances": {
+    "id": "demo-partner",
+    "name": "演示推广者",
+    "wallet": "0x566A76F0DF536e0C3090B907100a5b5e308356D3",
+    "autoSettle": false,
+    "available": "0",
+    "pending": "0",
+    "paid": "1000000",
+    "consumed": ""
+  },
+  "payout": {
+    "id": "0x19209eefa7f6feb9950109ec91dc1dc9be38295090d57e6c4ee7355f8856a63d",
+    "sourceId": "beefapi:order-local-x402-e2e-001:1",
+    "recipient": "0x566A76F0DF536e0C3090B907100a5b5e308356D3",
+    "amount": "1000000",
+    "status": "completed",
+    "txHash": "0xd441abd62ae3e4bdb391f7a70c1a537c43ea43fcbe5189ee24fbc1ce16c3e608",
+    "error": null,
+    "createdAt": 1789726111000
+  },
+  "payment": {
+    "mode": "x402",
+    "status": "completed",
+    "txHash": "0xfe1658cb9da81b68fba50758dad13cf5fb4b6973ed3bbc21b073881a08f3b310",
+    "error": null
+  },
+  "settleCalls": 1,
+  "checks": [
+    "official client parses402/signs authorization/reads settlement",
+    "EVM enforces real EIP712 authorization",
+    "Go order commission and automatic EVM payout",
+    "same auth replay no additional charge",
+    "synthetic payment disabled"
+  ]
+}

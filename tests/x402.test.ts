@@ -1086,3 +1086,22 @@ test("legacy paid rows stay without x402 payment after enable", async () => {
   expect(state.orders[0].status).toBe("paid");
   expect(state.orders[0].payment).toBeUndefined();
 });
+
+test('pinned expired authorization recovers settled source writeback without new charge', async () => {
+  let now=Date.now();const source=mockOrderSource();source.setPayFail('来源服务暂时不可用。');
+  const h=harness({},source,{now:()=>now});const sid=await open(h.app);const order=await createPending(h.app,sid,h.store);
+  const signed=await signPayload({origin:h.app.origin,requestId:order.requestId,account:privateKeyToAccount(generatePrivateKey())});
+  const path=`/api/x402/orders/${order.requestId}/pay`;
+  expect((await req(h.app,path,{sid,method:'POST',body:'{}',paymentSignature:signed.header})).status).toBe(502);
+  now+=600000;source.setPayFail(null);
+  expect((await req(h.app,path,{sid,method:'POST',body:'{}',paymentSignature:signed.header})).status).toBe(200);
+  expect(h.facilitator.settleCalls).toBe(1);
+});
+
+test('turning x402 off cannot synthetically pay an existing x402 order', async () => {
+  const h=harness();const sid=await open(h.app);const order=await createPending(h.app,sid,h.store);
+  const config=runtimeConfig({...h.config,x402Enabled:false});
+  const app=createApp({store:h.store,worker:h.worker,chain:h.chain,source:h.source,config});
+  expect((await req(app,`/api/demo/orders/${order.requestId}/pay`,{sid,method:'POST',body:'{}'})).status).toBe(403);
+  expect(h.source.payCalls).toBe(0);
+});

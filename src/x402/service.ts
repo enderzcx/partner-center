@@ -315,6 +315,7 @@ export function createX402Service(opts: {
           requestId: existing.requestId,
           requirements: requirementsOf(existing),
           nowMs: opts.now(),
+          allowExpiredPinned: payload !== null,
         });
         const pinned = opts.store.pinX402Authorization({
           requestId: existing.requestId,

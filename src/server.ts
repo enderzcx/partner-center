@@ -445,10 +445,10 @@ export function createApp(opts: {
 
   const payDemoOrder = async (requestIdRaw: string): Promise<PublicOrder> => {
     requireOrderDemo();
-    if (x402Enabled) {
+    const requestId = parseOrderRequestId(requestIdRaw);
+    if (x402Enabled || opts.store.getX402Order(requestId)) {
       throw new ServiceError(403, "请完成订单付款。");
     }
-    const requestId = parseOrderRequestId(requestIdRaw);
     return lockOrder(requestId, () => awardDemoOrder(requestId));
   };
 

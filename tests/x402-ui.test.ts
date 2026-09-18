@@ -478,3 +478,23 @@ test("user-rejected detection and checkout URL exactness", () => {
     "https://partner.bflabs.app/api/x402/orders/11111111-1111-4111-8111-111111111111/pay",
   );
 });
+
+test('wallet RPC signs the full EIP712 domain and signature recovers correctly', async () => {
+  const {startX402LocalChain} = await import('../scripts/x402-local-chain.ts');
+  const {buildTransferTypedData} = await import('../public/app.js');
+  const {recoverTypedDataAddress} = await import('viem');
+  const c = await startX402LocalChain();
+  try {
+    const typed = buildTransferTypedData({from:c.payer.address,to:c.treasury,value:'10000000',validAfter:'0',validBefore:String(Math.floor(Date.now()/1000)+300),nonce:'0x'+'cd'.repeat(32)}, {asset:c.token,extra:{name:'USD Coin',version:'2'}});
+    const signature = await c.server.provider.request({method:'eth_signTypedData_v4',params:[c.payer.address,typed]});
+    const recovered = await recoverTypedDataAddress({...typed,signature:signature as `0x${string}`} as Parameters<typeof recoverTypedDataAddress>[0]);
+    expect(recovered.toLowerCase()).toBe(c.payer.address.toLowerCase());
+  } finally { await c.server.close(); }
+}, 30000);
+
+test('late checkout 401 cannot log out a newer account session', async () => {
+  let generation=1; let logoutCalls=0;
+  const checkout=createX402Pay({payloads:new Map(),fetch:async()=>{generation=2;return jsonResponse(401,{error:'old session'});},getAuthGeneration:()=>generation,onUnauthorized:()=>logoutCalls++});
+  await expect(checkout.pay(pendingOrder)).rejects.toThrow();
+  expect(logoutCalls).toBe(0);
+});

@@ -16,6 +16,7 @@ services:
     stop_grace_period: 30s
     environment:
       SETTLEMENT_PUBLIC_ORIGIN: https://partner.bflabs.app
+      SETTLEMENT_X402_ENABLED: ${SETTLEMENT_X402_ENABLED:-false}
       PARTNER_DATA_DIR: /data
       PARTNER_SECRET_FILE: /run/secrets/partner-demo.json
     volumes:

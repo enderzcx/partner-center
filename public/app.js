@@ -259,6 +259,12 @@ function randomNonce32(fill) {
 function buildTransferTypedData(authorization, accepted) {
   return {
     types: {
+      EIP712Domain: [
+        { name: "name", type: "string" },
+        { name: "version", type: "string" },
+        { name: "chainId", type: "uint256" },
+        { name: "verifyingContract", type: "address" },
+      ],
       TransferWithAuthorization: [
         { name: "from", type: "address" },
         { name: "to", type: "address" },
@@ -381,7 +387,7 @@ async function ensureFujiChain(provider) {
 }
 function createX402Pay(io) {
   const payloads = io.payloads || new Map();
-  async function postPay(orderId, signatureB64) {
+  async function postPay(orderId, signatureB64, generation) {
     const path = "/api/x402/orders/" + encodeURIComponent(orderId) + "/pay";
     const headers = { "Content-Type": "application/json" };
     if (signatureB64) headers["PAYMENT-SIGNATURE"] = signatureB64;
@@ -392,7 +398,7 @@ function createX402Pay(io) {
       body: "{}",
     });
     const result = await readResponseJson(response);
-    if (response.status === 401) {
+    if (response.status === 401 && generation === io.getAuthGeneration()) {
       const message = payErrorMessage(result, "登录已过期，请重新登录。");
       if (typeof io.onUnauthorized === "function") io.onUnauthorized(message);
       throw new Error(message);
@@ -477,7 +483,9 @@ function createX402Pay(io) {
       const send = async (signatureB64) => {
         if (stale()) throw new Error("登录已过期，请重新登录。");
         try {
-          return await postPay(id, signatureB64);
+          const result = await postPay(id, signatureB64, generation);
+          if (stale()) throw new Error("登录已过期，请重新登录。");
+          return result;
         } catch (err) {
           if (stale()) throw new Error("登录已过期，请重新登录。");
           if (signatureB64 && isNetworkError(err)) {
