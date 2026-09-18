@@ -1,0 +1,15 @@
+{
+  "job": "20260919-010713-review-5c4237bc",
+  "snapshot": "b1e96c6",
+  "review": {
+    "verdict": "approve",
+    "summary": "HEAD b1e96c6 vs 7a636d1 is clear of release blockers for the authorized partner.bflabs.app deploy. Both prior findings are fixed in code: applyState stamps session authEnabled onto /api/state, and runAction/payX402/login/logout take busy/loginBusy refs before the first await, with three same-frame tests. public/app.js, src/static.ts, src/auth.ts CSP, src/server.ts static serving, src/config.ts publicDir, and deploy/Dockerfile are unchanged in this range; the image still builds web/dist and serves it under script-src 'self' with no inline scripts. Production remains auth-on beefapi; local Vite Origin rewriting is not in the runtime image.",
+    "findings": [],
+    "next_steps": [
+      "Deploy this exact snapshot (b1e96c6). Docker ignores local web/dist and rebuilds frontend in the image; do not ship a host-copied dist.",
+      "Residual, not blocking: fixtureMutationsOpen({ source: 'fixture' }) is still false when authEnabled is omitted; production auth-on always sends/stamps the flag, and host browser QA already saw auth-off controls. A stamp/omitted-field unit test would only lock the local fixture path.",
+      "Residual, not blocking: Partner.jsx still mirrors busy/loginBusy from React state on render; same-frame double-submit is covered. Vite preview proxy rewrites 4321 Origin to 4322 locally only.",
+      "Do not treat docs/evidence/overseas-review.json disposition as a substitute for this review; backend payment/accounting/protocol and public/app.js were not modified."
+    ]
+  }
+}

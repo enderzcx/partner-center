@@ -1,0 +1,39 @@
+{
+  "releasedAt": "2026-09-18T17:16:19.964Z",
+  "origin": "https://partner.bflabs.app",
+  "code": "b1e96c6",
+  "sourceCode": "9195e270744d51152718c7edb9a4b65af1980ce4",
+  "image": "partner-demo:overseas-v5",
+  "imageId": "sha256:48dd00ac53b2db89170dfc97d7053afd2f6c9493b2cce505ed46c6a2d8c27363",
+  "archiveSha256": "78ceccb7cc88c8510c703000bd9d037ba9a11b7cb492ea1161ff373a2bbff185",
+  "previousImage": "partner-demo:x402-v4",
+  "backup": "/home/ubuntu/partner-demo/backups/pre-overseas-v5-20260919",
+  "healthy": true,
+  "restarts": 0,
+  "imageSmoke": {
+    "result": "PASS",
+    "assets": 22,
+    "network": "disabled"
+  },
+  "ledgerUnchanged": true,
+  "payoutCount": 3,
+  "paidMicroUSDC": "3000000",
+  "treasuryMicroUSDC": "28000000",
+  "newPayments": 0,
+  "browser": {
+    "merchantLogin": "PASS",
+    "promoterLogin": "PASS",
+    "promoterMerchantLinkAbsent": true,
+    "latestReceiptAmountUSDC": "1.00",
+    "incomingTx": "0xd0df9f773a5d033e4ee0475a47cf48f54c653b778077662555e6c531d45104c6",
+    "outgoingTx": "0x6f9843b7c2d14211c07ef6d539a625cd4c8b1c962426b49ada6b15ac8fdea23d",
+    "mobileViewport": 390,
+    "mobileScrollWidth": 390,
+    "fonts": "loaded",
+    "screenshot": "Two Page.captureScreenshot timeouts; no new public screenshot claimed."
+  },
+  "existingSites": {
+    "global.beefapi.com": 200,
+    "beefapi.com": 200
+  }
+}

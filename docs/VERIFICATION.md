@@ -154,3 +154,17 @@ Grok两个开发工作树已删除，作者分支保留，回执归档到本任�
 - 升级前成对账本备份保留于 /home/ubuntu/partner-demo/backups/pre-multicall-fix-20260918。不可恢复到收款前账本而丢失这笔链上付款。
 - Chrome 原生 CUA 回执读回“已完成”、1.00 USDC、正确收款人和两笔完整哈希；最终截图人工核对通过，私有截图保留 .local/x402-complete-chrome.png。浏览器 CDP 因 consent 拒绝，未绕过授权，改用原生 AX；必要导航使用已授权前台输入。未创建新 Chrome 窗口、未保存密码、未开启录屏；关闭钱包侧栏，保留原窗口的完成回执。
 - 完整公开链上与账本证据：[x402 Fuji 完成凭证](evidence/x402-fuji-complete-2026-09-18.json)。这是受控测试订单的真实测试币收款和返佣闭环，不包含主网资金、生产订单或真实 AI 调用计费接入。代码仍只在本地提交，未推送远端。
+
+## 海外站完整前端迁移版公网发布 · 2026-09-19
+
+Ender明确要求“上线吧”。已发布代码b1e96c6对应的partner-demo:overseas-v5，替换x402-v4；首页、独立登录、商家/推广者控制台、订单、钱包、结算记录、回执和TTU修正均进入公网。镜像由Docker内重新构建web/dist，amd64镜像ID为sha256:48dd00ac53b2db89170dfc97d7053afd2f6c9493b2cce505ed46c6a2d8c27363。
+
+- 独立发布复核20260919-010713-review-5c4237bc approve，无阻塞项；只读最终复核见evidence/overseas-v5-release-review.json。
+- Linux无网络镜像检查：22个构建资源、6条SPA路由、CSP和真实登录/state权限通过，没有链访问或交易。
+- 停服后成对备份data和部署配置到/home/ubuntu/partner-demo/backups/pre-overseas-v5-20260919；旧x402-v4镜像保留。新容器running/healthy，重启0次。
+- 公网/healthz正常；首页、登录、说明、订单、钱包、结算记录直接打开均200且保留CSP。既有global.beefapi.com和beefapi.com均200，未改其部署或Nginx配置。
+- 发布前后商家/推广者状态逐字段一致：三笔完成结算、累计3测试USDC、合约28测试USDC；订单、金额、地址及交易哈希均未改变。匿名401，登录两角色正确，退出撤销有效。
+- 真实浏览器Ego任务247核对商家数据、推广者无商家订单入口、1USDC回执的两笔完整交易链接；390px无横向溢出，字体loaded。截图接口两次Page.captureScreenshot超时，本轮没有新的公网截图，不以先前本地截图冒充公网截图。页面DOM、链接、字体、样式和数据读回正常。
+- 发布没有新增链上付款/签名，没有修改生产BeefAPI账本。授权仅用于这次新版服务发布。
+
+完整发布凭证：evidence/overseas-v5-release.json。回滚仅恢复旧应用镜像和对应配置，保留当前账本；不要把旧数据备份覆盖到已发生后续交易的账本。Git代码及发布文档仍在本地分支，未推送远端。
