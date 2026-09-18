@@ -46,6 +46,12 @@
             ><span id="network-description">正在连接结算服务</span>
           </div>
           <div
+            id="service-warning"
+            class="notice error"
+            role="status"
+            hidden
+          ></div>
+          <div
             id="notice"
             class="notice"
             role="status"
@@ -93,7 +99,7 @@
               </div>
               <dl class="balances">
                 <div>
-                  <dt>出款钱包余额</dt>
+                  <dt>结算资金余额</dt>
                   <dd>
                     <span id="token-balance">···</span> <small>USDC</small>
                   </dd>

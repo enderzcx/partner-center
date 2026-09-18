@@ -764,3 +764,8 @@ dialog h2 {
 .explorer-link {
   margin-top: 18px;
 }
+
+.receipt-fields dd {
+  word-break: break-all;
+  text-wrap: balance;
+}

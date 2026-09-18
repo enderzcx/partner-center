@@ -22,9 +22,10 @@ writeFileSync(
   resolve(root, ".local/beefapi.env"),
   [
     "export SETTLEMENT_SOURCE=beefapi",
+    `export SETTLEMENT_DB=.local/beefapi-${Date.now()}.sqlite`,
     `export BEEFAPI_TEST_BASE_URL=http://127.0.0.1:${port}`,
     `export SETTLEMENT_TEST_TOKEN=${token}`,
-    "export BEEFAPI_PARTNER_ID=1",
+    "export SETTLEMENT_PARTNER_USER_ID=1",
   ].join("\n") + "\n",
   { mode: 0o600 },
 );

@@ -1,9 +1,15 @@
-import { Database } from 'bun:sqlite';
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-import { getAddress, isAddress, keccak256, toHex } from 'viem';
-import { MERCHANT_ID, PARTNER_ID, PARTNER_NAME } from './config.ts';
-import { asBigInt, assertLedgerCap, formatAmount, MAX_AMOUNT, MAX_LEDGER } from './money.ts';
+import { Database } from "bun:sqlite";
+import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
+import { getAddress, isAddress, keccak256, toHex } from "viem";
+import { MERCHANT_ID, PARTNER_ID, PARTNER_NAME } from "./config.ts";
+import {
+  asBigInt,
+  assertLedgerCap,
+  formatAmount,
+  MAX_AMOUNT,
+  MAX_LEDGER,
+} from "./money.ts";
 import {
   type Address,
   type Hex,
@@ -13,26 +19,26 @@ import {
   type PublicPayout,
   ServiceError,
   toPublicPayout,
-} from './types.ts';
+} from "./types.ts";
 
 export type Store = ReturnType<typeof createStore>;
 
 type Clock = () => number;
 
 const STATUSES = new Set<PayoutStatus>([
-  'reserved',
-  'prepared',
-  'broadcast',
-  'confirmed',
-  'completed',
-  'blocked',
+  "reserved",
+  "prepared",
+  "broadcast",
+  "confirmed",
+  "completed",
+  "blocked",
 ]);
 
 function payoutId(merchantId: string, sourceId: string): Hex {
   return keccak256(toHex(`${merchantId}/${sourceId}`));
 }
 
-function address(value: string, label = '地址'): Address {
+function address(value: string, label = "地址"): Address {
   if (!isAddress(value, { strict: false })) {
     throw new ServiceError(400, `${label}无效。`);
   }
@@ -42,7 +48,7 @@ function address(value: string, label = '地址'): Address {
 function mapPayout(row: Record<string, unknown>): PayoutRecord {
   const status = String(row.status);
   if (!STATUSES.has(status as PayoutStatus)) {
-    throw new ServiceError(500, '出款状态异常。');
+    throw new ServiceError(500, "出款状态异常。");
   }
   return {
     id: String(row.id) as Hex,
@@ -53,7 +59,9 @@ function mapPayout(row: Record<string, unknown>): PayoutRecord {
     txHash: row.tx_hash ? (String(row.tx_hash) as Hex) : null,
     error: row.error ? String(row.error) : null,
     createdAt: Number(row.created_at),
-    rawTransaction: row.raw_transaction ? (String(row.raw_transaction) as Hex) : null,
+    rawTransaction: row.raw_transaction
+      ? (String(row.raw_transaction) as Hex)
+      : null,
     alreadyFrozen: Number(row.already_frozen) === 1,
     requestId: row.request_id ? String(row.request_id) : null,
     externalId: row.external_id == null ? null : Number(row.external_id),
@@ -72,14 +80,14 @@ export function createStore(opts: {
   const merchantId = opts.merchantId ?? MERCHANT_ID;
   const partnerId = opts.partnerId ?? PARTNER_ID;
   const partnerName = opts.partnerName ?? PARTNER_NAME;
-  if (opts.path !== ':memory:') {
+  if (opts.path !== ":memory:") {
     mkdirSync(dirname(opts.path), { recursive: true, mode: 0o700 });
   }
   const db = new Database(opts.path, { create: true });
-  db.exec('PRAGMA journal_mode = WAL;');
-  db.exec('PRAGMA busy_timeout = 5000;');
-  db.exec('PRAGMA foreign_keys = ON;');
-  db.exec('PRAGMA synchronous = FULL;');
+  db.exec("PRAGMA journal_mode = WAL;");
+  db.exec("PRAGMA busy_timeout = 5000;");
+  db.exec("PRAGMA foreign_keys = ON;");
+  db.exec("PRAGMA synchronous = FULL;");
   db.exec(`
     CREATE TABLE IF NOT EXISTS partner (
       id TEXT PRIMARY KEY,
@@ -148,17 +156,17 @@ export function createStore(opts: {
   );
   db.run(`INSERT OR IGNORE INTO service (id, paused) VALUES (1, 0)`);
   if (opts.fingerprint) {
-    const bound = db.query(`SELECT fingerprint FROM runtime WHERE id = 1`).get() as
-      | { fingerprint: string }
-      | null;
+    const bound = db
+      .query(`SELECT fingerprint FROM runtime WHERE id = 1`)
+      .get() as { fingerprint: string } | null;
     if (!bound) {
-      db.run(`INSERT INTO runtime (id, fingerprint, bound_at) VALUES (1, ?, ?)`, [
-        opts.fingerprint,
-        now(),
-      ]);
+      db.run(
+        `INSERT INTO runtime (id, fingerprint, bound_at) VALUES (1, ?, ?)`,
+        [opts.fingerprint, now()],
+      );
     } else if (bound.fingerprint !== opts.fingerprint) {
       db.close();
-      throw new Error('结算账本与当前运行配置不一致，拒绝复用。');
+      throw new Error("结算账本与当前运行配置不一致，拒绝复用。");
     }
   }
 
@@ -173,7 +181,7 @@ export function createStore(opts: {
     return {
       id: String(row.id),
       name: String(row.name),
-      wallet: String(row.wallet ?? ''),
+      wallet: String(row.wallet ?? ""),
       autoSettle: Number(row.auto_settle) === 1,
       available: asBigInt(row.available),
       pending: asBigInt(row.pending),
@@ -183,16 +191,16 @@ export function createStore(opts: {
   };
 
   const getPayoutBySource = (sourceId: string): PayoutRecord | null => {
-    const row = db.query(`SELECT * FROM payouts WHERE source_id = ?`).get(sourceId) as
-      | Record<string, unknown>
-      | null;
+    const row = db
+      .query(`SELECT * FROM payouts WHERE source_id = ?`)
+      .get(sourceId) as Record<string, unknown> | null;
     return row ? mapPayout(row) : null;
   };
 
   const getPayout = (id: string): PayoutRecord | null => {
-    const row = db.query(`SELECT * FROM payouts WHERE id = ?`).get(id) as
-      | Record<string, unknown>
-      | null;
+    const row = db
+      .query(`SELECT * FROM payouts WHERE id = ?`)
+      .get(id) as Record<string, unknown> | null;
     return row ? mapPayout(row) : null;
   };
 
@@ -211,7 +219,7 @@ export function createStore(opts: {
         existing.amount !== item.amount ||
         existing.recipient.toLowerCase() !== item.recipient.toLowerCase()
       ) {
-        throw new ServiceError(409, '同一来源的金额或收款地址不能更改。');
+        throw new ServiceError(409, "同一来源的金额或收款地址不能更改。");
       }
       return existing;
     }
@@ -243,28 +251,33 @@ export function createStore(opts: {
     partnerId,
     getPartner,
     isPaused(): boolean {
-      const row = db.query(`SELECT paused FROM service WHERE id = 1`).get() as { paused: number };
+      const row = db.query(`SELECT paused FROM service WHERE id = 1`).get() as {
+        paused: number;
+      };
       return Number(row.paused) === 1;
     },
     setPaused(paused: boolean) {
       db.run(`UPDATE service SET paused = ? WHERE id = 1`, [paused ? 1 : 0]);
     },
     setWallet(wallet: string) {
-      const value = address(wallet, '钱包地址');
+      const value = address(wallet, "钱包地址");
       db.run(`UPDATE partner SET wallet = ? WHERE id = ?`, [value, partnerId]);
     },
     setAutoSettle(enabled: boolean) {
       tx(() => {
         const partner = getPartner();
         if (enabled && !partner.wallet) {
-          throw new ServiceError(400, '请先绑定收款钱包，再开启自动结算。');
+          throw new ServiceError(400, "请先绑定收款钱包，再开启自动结算。");
         }
-        db.run(`UPDATE partner SET auto_settle = ? WHERE id = ?`, [enabled ? 1 : 0, partnerId]);
+        db.run(`UPDATE partner SET auto_settle = ? WHERE id = ?`, [
+          enabled ? 1 : 0,
+          partnerId,
+        ]);
       });
     },
     addCommission(amount: bigint): string {
       if (amount <= 0n || amount > MAX_AMOUNT) {
-        throw new ServiceError(400, '金额超过单笔上限。');
+        throw new ServiceError(400, "金额超过单笔上限。");
       }
       return tx(() => {
         const partner = getPartner();
@@ -289,11 +302,12 @@ export function createStore(opts: {
     },
     transfer(amount: bigint) {
       if (amount <= 0n || amount > MAX_AMOUNT) {
-        throw new ServiceError(400, '金额超过单笔上限。');
+        throw new ServiceError(400, "金额超过单笔上限。");
       }
       tx(() => {
         const partner = getPartner();
-        if (partner.available < amount) throw new ServiceError(409, '可用收益不足。');
+        if (partner.available < amount)
+          throw new ServiceError(409, "可用收益不足。");
         assertLedgerCap(partner.consumed, amount);
         let left = amount;
         const rows = db
@@ -309,19 +323,24 @@ export function createStore(opts: {
             `UPDATE commissions SET remaining = remaining - ? WHERE source_id = ? AND remaining >= ?`,
             [take.toString(), String(row.source_id), take.toString()],
           );
-          if (upd.changes !== 1) throw new ServiceError(409, '可用收益不足。');
+          if (upd.changes !== 1) throw new ServiceError(409, "可用收益不足。");
           left -= take;
         }
-        if (left !== 0n) throw new ServiceError(409, '可用收益不足。');
+        if (left !== 0n) throw new ServiceError(409, "可用收益不足。");
         const result = db.run(
           `UPDATE partner SET available = available - ?, consumed = consumed + ?
            WHERE id = ? AND available >= ?`,
           [amount.toString(), amount.toString(), partnerId, amount.toString()],
         );
-        if (result.changes !== 1) throw new ServiceError(409, '可用收益不足。');
+        if (result.changes !== 1) throw new ServiceError(409, "可用收益不足。");
       });
     },
-    listRemainingCommissions(): { sourceId: string; amount: bigint; remaining: bigint; createdAt: number }[] {
+    listRemainingCommissions(): {
+      sourceId: string;
+      amount: bigint;
+      remaining: bigint;
+      createdAt: number;
+    }[] {
       const rows = db
         .query(
           `SELECT source_id, amount, remaining, created_at FROM commissions WHERE remaining > 0
@@ -342,7 +361,7 @@ export function createStore(opts: {
       maturityMs: number;
     }): PayoutRecord | null {
       return tx(() => {
-        const to = address(opts.recipient, '收款地址');
+        const to = address(opts.recipient, "收款地址");
         const rows = db
           .query(
             `SELECT source_id, remaining, created_at FROM commissions WHERE remaining > 0
@@ -355,18 +374,22 @@ export function createStore(opts: {
           if (opts.nowMs < Number(row.created_at) + opts.maturityMs) continue;
           const remaining = asBigInt(row.remaining);
           if (remaining <= 0n) continue;
-          selected.push({ sourceId: String(row.source_id), take: remaining });
-          total += remaining;
+          const room = MAX_AMOUNT - total;
+          const take = remaining < room ? remaining : room;
+          selected.push({ sourceId: String(row.source_id), take });
+          total += take;
+          if (total === MAX_AMOUNT) break;
         }
         if (total < opts.minAmount) return null;
         const partner = getPartner();
-        if (partner.available < total) throw new ServiceError(409, '可用收益不足。');
+        if (partner.available < total)
+          throw new ServiceError(409, "可用收益不足。");
         const moved = db.run(
           `UPDATE partner SET available = available - ?, pending = pending + ?
            WHERE id = ? AND available >= ?`,
           [total.toString(), total.toString(), partnerId, total.toString()],
         );
-        if (moved.changes !== 1) throw new ServiceError(409, '可用收益不足。');
+        if (moved.changes !== 1) throw new ServiceError(409, "可用收益不足。");
         const sourceId = `fixture:agg:${crypto.randomUUID()}`;
         const payout = insertPayout({
           sourceId,
@@ -379,7 +402,7 @@ export function createStore(opts: {
             `UPDATE commissions SET remaining = remaining - ? WHERE source_id = ? AND remaining >= ?`,
             [part.take.toString(), part.sourceId, part.take.toString()],
           );
-          if (upd.changes !== 1) throw new ServiceError(409, '可用收益不足。');
+          if (upd.changes !== 1) throw new ServiceError(409, "可用收益不足。");
           db.run(
             `INSERT INTO allocations (payout_id, commission_source_id, amount) VALUES (?, ?, ?)`,
             [payout.id, part.sourceId, part.take.toString()],
@@ -388,7 +411,9 @@ export function createStore(opts: {
         return getPayoutBySource(sourceId)!;
       });
     },
-    listAllocations(payoutId: string): { commissionId: string; amount: bigint }[] {
+    listAllocations(
+      payoutId: string,
+    ): { commissionId: string; amount: bigint }[] {
       const rows = db
         .query(
           `SELECT commission_source_id, amount FROM allocations WHERE payout_id = ? ORDER BY commission_source_id`,
@@ -410,9 +435,9 @@ export function createStore(opts: {
       numericId?: number;
     }): PayoutRecord {
       if (item.amount <= 0n || item.amount > MAX_AMOUNT) {
-        throw new ServiceError(400, '金额超过单笔上限。');
+        throw new ServiceError(400, "金额超过单笔上限。");
       }
-      const to = address(item.recipient, '收款地址');
+      const to = address(item.recipient, "收款地址");
       return tx(() => {
         const existing = getPayoutBySource(item.sourceId);
         if (existing) {
@@ -420,7 +445,7 @@ export function createStore(opts: {
             existing.amount !== item.amount ||
             existing.recipient.toLowerCase() !== to.toLowerCase()
           ) {
-            throw new ServiceError(409, '同一来源的金额或收款地址不能更改。');
+            throw new ServiceError(409, "同一来源的金额或收款地址不能更改。");
           }
           return existing;
         }
@@ -433,13 +458,20 @@ export function createStore(opts: {
           ]);
         } else {
           const partner = getPartner();
-          if (partner.available < item.amount) throw new ServiceError(409, '可用收益不足。');
+          if (partner.available < item.amount)
+            throw new ServiceError(409, "可用收益不足。");
           const result = db.run(
             `UPDATE partner SET available = available - ?, pending = pending + ?
              WHERE id = ? AND available >= ?`,
-            [item.amount.toString(), item.amount.toString(), partnerId, item.amount.toString()],
+            [
+              item.amount.toString(),
+              item.amount.toString(),
+              partnerId,
+              item.amount.toString(),
+            ],
           );
-          if (result.changes !== 1) throw new ServiceError(409, '可用收益不足。');
+          if (result.changes !== 1)
+            throw new ServiceError(409, "可用收益不足。");
         }
         return insertPayout({
           ...item,
@@ -470,33 +502,40 @@ export function createStore(opts: {
     },
     listByStatus(statuses: PayoutStatus[]): PayoutRecord[] {
       if (statuses.length === 0) return [];
-      const placeholders = statuses.map(() => '?').join(',');
+      const placeholders = statuses.map(() => "?").join(",");
       const rows = db
-        .query(`SELECT * FROM payouts WHERE status IN (${placeholders}) ORDER BY created_at ASC`)
+        .query(
+          `SELECT * FROM payouts WHERE status IN (${placeholders}) ORDER BY created_at ASC`,
+        )
         .all(...statuses) as Record<string, unknown>[];
       return rows.map(mapPayout);
     },
     nextReserved(): PayoutRecord | null {
       const row = db
-        .query(`SELECT * FROM payouts WHERE status = 'reserved' ORDER BY created_at ASC LIMIT 1`)
+        .query(
+          `SELECT * FROM payouts WHERE status = 'reserved' ORDER BY created_at ASC LIMIT 1`,
+        )
         .get() as Record<string, unknown> | null;
       return row ? mapPayout(row) : null;
     },
     persistPrepared(id: string, rawTransaction: Hex, hash: Hex) {
       tx(() => {
         const current = getPayout(id);
-        if (!current || current.status !== 'reserved') {
-          throw new ServiceError(409, '这笔出款还不能签名。');
+        if (!current || current.status !== "reserved") {
+          throw new ServiceError(409, "这笔出款还不能签名。");
         }
         const inflight = db
-          .query(`SELECT id FROM payouts WHERE status IN ('prepared', 'broadcast') AND id != ?`)
+          .query(
+            `SELECT id FROM payouts WHERE status IN ('prepared', 'broadcast') AND id != ?`,
+          )
           .get(id) as { id: string } | null;
-        if (inflight) throw new ServiceError(409, '已有未完成的出款交易。');
+        if (inflight) throw new ServiceError(409, "已有未完成的出款交易。");
         const prepared = db.run(
           `UPDATE payouts SET status = 'prepared', raw_transaction = ?, tx_hash = ?, error = NULL WHERE id = ? AND status = 'reserved'`,
           [rawTransaction, hash, id],
         );
-        if (prepared.changes !== 1) throw new ServiceError(409, '这笔出款还不能签名。');
+        if (prepared.changes !== 1)
+          throw new ServiceError(409, "这笔出款还不能签名。");
       });
     },
     markBroadcast(id: string) {
@@ -506,8 +545,8 @@ export function createStore(opts: {
       );
       if (result.changes !== 1) {
         const current = getPayout(id);
-        if (current?.status !== 'broadcast') {
-          throw new ServiceError(409, '这笔出款还不能广播。');
+        if (current?.status !== "broadcast") {
+          throw new ServiceError(409, "这笔出款还不能广播。");
         }
       }
     },
@@ -529,10 +568,10 @@ export function createStore(opts: {
     completePayout(id: string) {
       tx(() => {
         const current = getPayout(id);
-        if (!current) throw new ServiceError(404, '找不到这笔出款。');
-        if (current.status === 'completed') return;
-        if (current.status !== 'confirmed') {
-          throw new ServiceError(409, '链上回执尚未确认，不能记为完成。');
+        if (!current) throw new ServiceError(404, "找不到这笔出款。");
+        if (current.status === "completed") return;
+        if (current.status !== "confirmed") {
+          throw new ServiceError(409, "链上回执尚未确认，不能记为完成。");
         }
         const result = db.run(
           `UPDATE payouts SET status = 'completed', error = NULL WHERE id = ? AND status = 'confirmed'`,
@@ -548,12 +587,15 @@ export function createStore(opts: {
             current.amount.toString(),
           ],
         );
-        if (ledger.changes !== 1) throw new ServiceError(500, '账本金额异常。');
+        if (ledger.changes !== 1) throw new ServiceError(500, "账本金额异常。");
       });
     },
     createSession(): string {
       const id = crypto.randomUUID();
-      db.run(`INSERT INTO sessions (id, created_at) VALUES (?, ?)`, [id, now()]);
+      db.run(`INSERT INTO sessions (id, created_at) VALUES (?, ?)`, [
+        id,
+        now(),
+      ]);
       return id;
     },
     hasSession(id: string): boolean {
@@ -577,13 +619,20 @@ export function createStore(opts: {
            issued_at = excluded.issued_at,
            expires_at = excluded.expires_at,
            consumed = 0`,
-        [row.sessionId, row.address, row.nonce, row.message, row.issuedAt, row.expiresAt],
+        [
+          row.sessionId,
+          row.address,
+          row.nonce,
+          row.message,
+          row.issuedAt,
+          row.expiresAt,
+        ],
       );
     },
     getChallenge(sessionId: string) {
-      const row = db.query(`SELECT * FROM challenges WHERE session_id = ?`).get(sessionId) as
-        | Record<string, unknown>
-        | null;
+      const row = db
+        .query(`SELECT * FROM challenges WHERE session_id = ?`)
+        .get(sessionId) as Record<string, unknown> | null;
       if (!row) return null;
       return {
         sessionId: String(row.session_id),
@@ -600,7 +649,8 @@ export function createStore(opts: {
         `UPDATE challenges SET consumed = 1 WHERE session_id = ? AND consumed = 0`,
         [sessionId],
       );
-      if (result.changes !== 1) throw new ServiceError(409, '验证信息已使用，请重新发起。');
+      if (result.changes !== 1)
+        throw new ServiceError(409, "验证信息已使用，请重新发起。");
     },
     partnerPublic(balances?: {
       available: string;

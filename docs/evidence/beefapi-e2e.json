@@ -1,0 +1,17 @@
+{
+  "result": "PASS",
+  "source": "beefapi",
+  "network": "local EVM 31337",
+  "payoutId": "0x0bba08ea2134b1039ebad884c7159dcd9cbc90bd7d404a4543b2836fb2679c2f",
+  "transactionHash": "0xc7e1b6810ea35eeaefe327876e8dc96bf813e5ac5f2fa23efe9b9271936cb7ab",
+  "amountMicroUSDC": "10000000",
+  "recipient": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+  "checks": [
+    "cookie auth",
+    "cross-origin denial",
+    "automatic settlement",
+    "real token delta",
+    "source completion",
+    "repeat tick no double payment"
+  ]
+}

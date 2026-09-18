@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   allowedHost,
   COOKIE,
@@ -11,7 +11,7 @@ import {
   recoverBoundAddress,
   securityHeaders,
   sessionCookie,
-} from './auth.ts';
+} from "./auth.ts";
 import {
   assertLoopbackBind,
   BODY_LIMIT,
@@ -22,19 +22,19 @@ import {
   runtimeConfig,
   runtimeFingerprint,
   type RuntimeConfig,
-} from './config.ts';
-import { acquireProcessLock } from './lock.ts';
-import { parseAmount } from './money.ts';
-import { createSource } from './source.ts';
-import { createStore, type Store } from './store.ts';
+} from "./config.ts";
+import { acquireProcessLock } from "./lock.ts";
+import { parseAmount } from "./money.ts";
+import { createSource } from "./source.ts";
+import { createStore, type Store } from "./store.ts";
 import {
   type AppState,
   type Chain,
   type Source,
   ServiceError,
   sanitizeError,
-} from './types.ts';
-import { createWorker, type SettlementWorker } from './worker.ts';
+} from "./types.ts";
+import { createWorker, type SettlementWorker } from "./worker.ts";
 
 export type { RuntimeConfig, Store, SettlementWorker, Chain, Source, AppState };
 export {
@@ -48,10 +48,10 @@ export {
 };
 
 const STATIC_FILES: Record<string, { file: string; type: string }> = {
-  '/': { file: 'index.html', type: 'text/html; charset=utf-8' },
-  '/index.html': { file: 'index.html', type: 'text/html; charset=utf-8' },
-  '/app.js': { file: 'app.js', type: 'text/javascript; charset=utf-8' },
-  '/style.css': { file: 'style.css', type: 'text/css; charset=utf-8' },
+  "/": { file: "index.html", type: "text/html; charset=utf-8" },
+  "/index.html": { file: "index.html", type: "text/html; charset=utf-8" },
+  "/app.js": { file: "app.js", type: "text/javascript; charset=utf-8" },
+  "/style.css": { file: "style.css", type: "text/css; charset=utf-8" },
 };
 
 export type SettlementApp = {
@@ -66,7 +66,7 @@ function json(status: number, body: unknown, extra?: HeadersInit): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      'Content-Type': 'application/json; charset=utf-8',
+      "Content-Type": "application/json; charset=utf-8",
       ...securityHeaders(),
       ...(extra ?? {}),
     },
@@ -74,20 +74,21 @@ function json(status: number, body: unknown, extra?: HeadersInit): Response {
 }
 
 function fail(err: unknown): Response {
-  if (err instanceof ServiceError) return json(err.status, { error: err.message });
+  if (err instanceof ServiceError)
+    return json(err.status, { error: err.message });
   return json(500, { error: sanitizeError(err) });
 }
 
 async function readJson(req: Request): Promise<Record<string, unknown>> {
-  const type = req.headers.get('content-type') ?? '';
-  if (!type.toLowerCase().startsWith('application/json')) {
-    throw new ServiceError(415, '请使用 JSON 提交。');
+  const type = req.headers.get("content-type") ?? "";
+  if (!type.toLowerCase().startsWith("application/json")) {
+    throw new ServiceError(415, "请使用 JSON 提交。");
   }
-  const lengthHeader = req.headers.get('content-length');
-  if (lengthHeader != null && lengthHeader !== '') {
+  const lengthHeader = req.headers.get("content-length");
+  if (lengthHeader != null && lengthHeader !== "") {
     const length = Number(lengthHeader);
     if (!Number.isFinite(length) || length < 0 || length > BODY_LIMIT) {
-      throw new ServiceError(413, '请求内容过大。');
+      throw new ServiceError(413, "请求内容过大。");
     }
   }
   if (!req.body) return {};
@@ -104,7 +105,7 @@ async function readJson(req: Request): Promise<Record<string, unknown>> {
       } catch {
         /* ignore */
       }
-      throw new ServiceError(413, '请求内容过大。');
+      throw new ServiceError(413, "请求内容过大。");
     }
     chunks.push(value);
   }
@@ -117,20 +118,20 @@ async function readJson(req: Request): Promise<Record<string, unknown>> {
   }
   try {
     const parsed = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      throw new ServiceError(400, '请求内容无效。');
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new ServiceError(400, "请求内容无效。");
     }
     return parsed as Record<string, unknown>;
   } catch (err) {
     if (err instanceof ServiceError) throw err;
-    throw new ServiceError(400, '请求内容无效。');
+    throw new ServiceError(400, "请求内容无效。");
   }
 }
 
 async function loadEvmChain(config: RuntimeConfig): Promise<Chain> {
-  const path = join(import.meta.dir, 'chain.ts');
+  const path = join(import.meta.dir, "chain.ts");
   if (!existsSync(path)) {
-    throw new Error('缺少 src/chain.ts 链适配，拒绝以模拟出款启动。');
+    throw new Error("缺少 src/chain.ts 链适配，拒绝以模拟出款启动。");
   }
   const mod = (await import(pathToFileURL(path).href)) as {
     EvmChain: new (c: {
@@ -165,17 +166,17 @@ export function createApp(opts: {
   const now = opts.now ?? opts.store.now ?? Date.now;
 
   const requireHost = (req: Request) => {
-    const host = req.headers.get('host');
+    const host = req.headers.get("host");
     if (!allowedHost(host, opts.config.port)) {
-      throw new ServiceError(403, '请求主机不被允许。');
+      throw new ServiceError(403, "请求主机不被允许。");
     }
     return host!;
   };
 
   const requireSession = (req: Request) => {
-    const sid = parseCookies(req.headers.get('cookie'))[COOKIE];
+    const sid = parseCookies(req.headers.get("cookie"))[COOKIE];
     if (!sid || !opts.store.hasSession(sid)) {
-      throw new ServiceError(401, '请从本页重新打开结算台。');
+      throw new ServiceError(401, "请从本页重新打开结算台。");
     }
     return sid;
   };
@@ -183,30 +184,35 @@ export function createApp(opts: {
   const requireMutation = async (req: Request) => {
     const host = requireHost(req);
     const sid = requireSession(req);
-    const originHeader = req.headers.get('origin');
+    const originHeader = req.headers.get("origin");
     if (!originHeader || originHeader !== originFromHost(host)) {
-      throw new ServiceError(403, '请求来源不被允许。');
+      throw new ServiceError(403, "请求来源不被允许。");
     }
     const body = await readJson(req);
     return { sid, body };
   };
 
   const state = async (): Promise<AppState> => {
-    let wallet = { token: '', gas: '' };
+    let wallet = { token: "", gas: "" };
     let configured = true;
     let networkError: string | undefined;
     try {
       wallet = await opts.chain.balances();
     } catch (err) {
-      wallet = { token: '', gas: '' };
+      wallet = { token: "", gas: "" };
       configured = false;
       networkError = sanitizeError(err);
     }
     const sourceBalances = await opts.source.balances();
     const partner = opts.store.partnerPublic(
-      opts.source.kind === 'beefapi'
-        ? sourceBalances ?? { available: '', pending: '', paid: '', consumed: '' }
-        : sourceBalances ?? undefined,
+      opts.source.kind === "beefapi"
+        ? (sourceBalances ?? {
+            available: "",
+            pending: "",
+            paid: "",
+            consumed: "",
+          })
+        : (sourceBalances ?? undefined),
     );
     const sourceError = opts.worker.getSourceError() ?? undefined;
     return {
@@ -227,53 +233,60 @@ export function createApp(opts: {
   const fetch = async (req: Request): Promise<Response> => {
     try {
       const url = new URL(req.url);
-      if (req.method !== 'GET' && req.method !== 'POST') {
-        return json(405, { error: '不支持的请求方法。' });
+      if (req.method !== "GET" && req.method !== "POST") {
+        return json(405, { error: "不支持的请求方法。" });
       }
-      if (req.method === 'GET' && STATIC_FILES[url.pathname]) {
+      if (req.method === "GET" && STATIC_FILES[url.pathname]) {
         requireHost(req);
         const spec = STATIC_FILES[url.pathname];
-        let headers: Record<string, string> = { ...securityHeaders(), 'Content-Type': spec.type };
-        const cookies = parseCookies(req.headers.get('cookie'));
+        let headers: Record<string, string> = {
+          ...securityHeaders(),
+          "Content-Type": spec.type,
+        };
+        const cookies = parseCookies(req.headers.get("cookie"));
         if (!cookies[COOKIE] || !opts.store.hasSession(cookies[COOKIE])) {
-          headers = { ...headers, 'Set-Cookie': sessionCookie(opts.store.createSession()) };
+          headers = {
+            ...headers,
+            "Set-Cookie": sessionCookie(opts.store.createSession()),
+          };
         }
         const filePath = join(publicDir, spec.file);
         if (!existsSync(filePath)) {
-          return new Response('Not found', { status: 404, headers });
+          return new Response("Not found", { status: 404, headers });
         }
         return new Response(readFileSync(filePath), { status: 200, headers });
       }
 
-      if (!url.pathname.startsWith('/api/')) {
+      if (!url.pathname.startsWith("/api/")) {
         requireHost(req);
-        return json(404, { error: '找不到该页面。' });
+        return json(404, { error: "找不到该页面。" });
       }
 
       requireHost(req);
-      if (req.method === 'GET' && url.pathname === '/api/state') {
+      if (req.method === "GET" && url.pathname === "/api/state") {
         requireSession(req);
         return json(200, await state());
       }
-      if (req.method !== 'POST') return json(405, { error: '不支持的请求方法。' });
+      if (req.method !== "POST")
+        return json(405, { error: "不支持的请求方法。" });
 
       const { sid, body } = await requireMutation(req);
       switch (url.pathname) {
-        case '/api/demo/commission': {
-          if (opts.source.kind !== 'fixture') {
-            throw new ServiceError(403, '当前来源不支持添加测试佣金。');
+        case "/api/demo/commission": {
+          if (opts.source.kind !== "fixture") {
+            throw new ServiceError(403, "当前来源不支持添加测试佣金。");
           }
           opts.store.addCommission(parseAmount(body.amount));
           return json(200, { ok: true });
         }
-        case '/api/partner/auto': {
-          if (typeof body.enabled !== 'boolean') {
-            throw new ServiceError(400, '请选择是否开启自动结算。');
+        case "/api/partner/auto": {
+          if (typeof body.enabled !== "boolean") {
+            throw new ServiceError(400, "请选择是否开启自动结算。");
           }
           opts.store.setAutoSettle(body.enabled);
           return json(200, { ok: true });
         }
-        case '/api/partner/wallet/challenge': {
+        case "/api/partner/wallet/challenge": {
           const address = parseAddress(body.address);
           const issued = issueChallenge({
             domain: originFromHost(requireHost(req)),
@@ -292,55 +305,69 @@ export function createApp(opts: {
           });
           return json(200, { message: issued.message });
         }
-        case '/api/partner/wallet/verify': {
+        case "/api/partner/wallet/verify": {
           const address = parseAddress(body.address);
           const challenge = opts.store.getChallenge(sid);
-          if (!challenge) throw new ServiceError(400, '请先获取验证信息。');
-          if (challenge.consumed) throw new ServiceError(409, '验证信息已使用，请重新发起。');
-          if (now() > challenge.expiresAt) throw new ServiceError(400, '验证信息已过期，请重新发起。');
+          if (!challenge) throw new ServiceError(400, "请先获取验证信息。");
+          if (challenge.consumed)
+            throw new ServiceError(409, "验证信息已使用，请重新发起。");
+          if (now() > challenge.expiresAt)
+            throw new ServiceError(400, "验证信息已过期，请重新发起。");
           if (challenge.address.toLowerCase() !== address.toLowerCase()) {
-            throw new ServiceError(400, '钱包地址与验证信息不一致。');
+            throw new ServiceError(400, "钱包地址与验证信息不一致。");
           }
-          const recovered = await recoverBoundAddress(challenge.message, body.signature);
+          const recovered = await recoverBoundAddress(
+            challenge.message,
+            body.signature,
+          );
           if (recovered.toLowerCase() !== address.toLowerCase()) {
-            throw new ServiceError(400, '签名无效。');
+            throw new ServiceError(400, "签名无效。");
           }
           opts.store.consumeChallenge(sid);
           opts.store.setWallet(recovered);
           return json(200, { ok: true });
         }
-        case '/api/demo/wallet': {
+        case "/api/demo/wallet": {
           opts.store.setWallet(demoWalletAddress(opts.config));
           return json(200, { ok: true });
         }
-        case '/api/partner/transfer': {
-          if (opts.source.kind !== 'fixture') {
-            throw new ServiceError(403, '当前来源不支持划入测试消费余额。');
+        case "/api/partner/transfer": {
+          if (opts.source.kind !== "fixture") {
+            throw new ServiceError(403, "当前来源不支持划入测试消费余额。");
           }
           opts.store.transfer(parseAmount(body.amount));
           return json(200, { ok: true });
         }
-        case '/api/admin/pause': {
-          if (typeof body.paused !== 'boolean') {
-            throw new ServiceError(400, '请选择是否暂停出款。');
+        case "/api/admin/pause": {
+          if (typeof body.paused !== "boolean") {
+            throw new ServiceError(400, "请选择是否暂停出款。");
           }
           opts.store.setPaused(body.paused);
           return json(200, { ok: true });
         }
-        case '/api/admin/run': {
+        case "/api/admin/run": {
           await opts.worker.tick({ force: true });
           const sourceError = opts.worker.getSourceError();
-          return json(200, sourceError ? { ok: true, sourceError } : { ok: true });
+          return json(
+            200,
+            sourceError ? { ok: true, sourceError } : { ok: true },
+          );
         }
         default:
-          return json(404, { error: '找不到该接口。' });
+          return json(404, { error: "找不到该接口。" });
       }
     } catch (err) {
       return fail(err);
     }
   };
 
-  return { fetch, origin, store: opts.store, worker: opts.worker, config: opts.config };
+  return {
+    fetch,
+    origin,
+    store: opts.store,
+    worker: opts.worker,
+    config: opts.config,
+  };
 }
 
 export async function startFromEnv(env = process.env) {
@@ -361,29 +388,31 @@ export async function startFromEnv(env = process.env) {
     try {
       await chain.balances();
     } catch {
-      throw new Error('结算链未就绪，拒绝启动。');
+      throw new Error("结算链未就绪，拒绝启动。");
     }
     const source = createSource(store, config);
     const worker = createWorker({ store, chain, source, config });
     const app = createApp({ store, worker, chain, source, config });
-    worker.start();
-    void worker.tick();
     const server = Bun.serve({
       hostname: config.host,
       port: config.port,
       fetch: app.fetch,
     });
-    const shutdown = async () => {
-      worker.stop();
-      await worker.drain();
-      server.stop(true);
-      store?.close();
-      lock.release();
-    };
-    process.on('SIGINT', () => {
+    worker.start();
+    void worker.tick().catch(() => {});
+    let shuttingDown: Promise<void> | undefined;
+    const shutdown = () =>
+      (shuttingDown ??= (async () => {
+        worker.stop();
+        server.stop(true);
+        await worker.drain();
+        store?.close();
+        lock.release();
+      })());
+    process.on("SIGINT", () => {
       void shutdown().then(() => process.exit(0));
     });
-    process.on('SIGTERM', () => {
+    process.on("SIGTERM", () => {
       void shutdown().then(() => process.exit(0));
     });
     return { app, server, lock, shutdown };

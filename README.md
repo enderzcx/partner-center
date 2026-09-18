@@ -58,3 +58,45 @@ bun scripts/fuji-preflight.ts
 ## 公开部署前
 
 本应用强制回环监听。公网身份认证、商家/推广者权限隔离、TLS 会话、多商家签名隔离、生产密钥托管和人工异常处理尚不在此次本地闭环的完成声明里。不能把本机测试身份切换页面直接发布为真实商家后台。
+
+## 复现接入验收
+
+先启动本地链。编译真实 BeefAPI 控制器的测试 fixture（只需首次或适配源码变化后）：
+
+```sh
+cd /Volumes/ExternalWork/Worktrees/beefapi/fuji-settlement
+go test -c ./controller -o /Volumes/ExternalWork/Worktrees/settlement/fuji-demo/.local/beefapi-fixture.test
+```
+
+在本项目新终端启动 fixture：
+
+```sh
+bun scripts/beefapi-fixture.ts
+```
+
+它创建全新的临时 SQLite、100 单位测试收益和专用临时 token，运行上限 30 分钟。生成的 `.local/beefapi.env` 只供服务进程读取，并为本轮生成独立结算数据库路径。
+
+停止占用 4311 的 fixture 模式应用后，在本项目另一终端运行：
+
+```sh
+source .local/beefapi.env
+SETTLEMENT_TICK_MS=1000 bun run dev
+```
+
+执行端到端验收：
+
+```sh
+bun scripts/verify-live.ts
+```
+
+脚本自动提交一张 10 单位的测试结算单，等待定时器出款，核对本地 EVM 余额实际增量与源账本状态，然后重复触发检查确认不多付。只允许本机 31337 网络。fixture 模式也可运行同一脚本，它会绑定本地钱包并添加测试佣金。
+
+仅监听一个服务实例；不得让其他进程共用执行私钥。不同来源使用不同账本文件，默认独占锁仍共用。服务重启后继续使用原账本、链数据库和配置；不同来源/链/代币/合约/执行地址不能复用同一账本。
+
+常规验证：
+
+```sh
+bun run verify
+```
+
+默认演示参数为 1 USDC 最低金额、60 秒成熟期、30 秒扫描；`SETTLEMENT_MATURITY_MS=0 SETTLEMENT_TICK_MS=1000` 仅用于加速本地测试。BeefAPI 已冻结的单据按来源确认结果处理，不再次套用演示成熟期。

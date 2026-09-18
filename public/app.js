@@ -13,6 +13,7 @@ let state = null,
   busy = false,
   fetching = false,
   selectedReceipt = null;
+let ledgerSignature = null;
 const escapeHTML = (v) =>
   String(v ?? "").replace(
     /[&<>"']/g,
@@ -22,7 +23,8 @@ const escapeHTML = (v) =>
       ],
   );
 function units(value, digits = 6, places = 2) {
-  if (value === undefined || value === null) return "暂无数据";
+  if (value === undefined || value === null || String(value).trim() === "")
+    return "暂无数据";
   try {
     const n = BigInt(value),
       base = 10n ** BigInt(digits),
@@ -33,7 +35,8 @@ function units(value, digits = 6, places = 2) {
   }
 }
 function precise(value) {
-  if (value === undefined || value === null) return "暂无数据";
+  if (value === undefined || value === null || String(value).trim() === "")
+    return "暂无数据";
   try {
     const n = BigInt(value);
     const f = (n % 1000000n).toString().padStart(6, "0").replace(/0+$/, "");
@@ -127,8 +130,9 @@ function renderControls() {
   $("transfer-controls").hidden = !fixture || role !== "promoter";
   $("demo-wallet").hidden = !local || !fixture;
   $("auto").hidden = !fixture;
+  $("bind").hidden = !fixture;
   $("pause").textContent = state.paused ? "恢复出款" : "暂停出款";
-  $("pause-state").textContent = state.paused ? "已暂停" : "可出款";
+  $("pause-state").textContent = state.paused ? "已暂停" : "出款已开启";
   $("pause-state").className = "badge" + (state.paused ? " warn" : " good");
   $("auto").textContent = state.partner.autoSettle
     ? "关闭自动结算"
@@ -136,8 +140,16 @@ function renderControls() {
   $("auto-state").textContent = state.partner.autoSettle
     ? "自动结算已开启"
     : "自动结算已关闭";
+  if (!fixture)
+    $("auto-state").textContent = state.paused
+      ? "出款已暂停"
+      : "按结算单自动出款";
   $("auto-state").className =
-    "badge" + (state.partner.autoSettle ? " good" : "");
+    "badge" +
+    ((!fixture ? !state.paused : state.partner.autoSettle) ? " good" : "");
+  if (!fixture)
+    $("recipient").textContent =
+      "收款地址由 BeefAPI 随结算单确认，可在每笔回执中查看。";
   $("min-description").textContent = fixture
     ? "可用收益满 " + precise(state.minAmount) + " USDC 后自动结算。"
     : "佣金由接入方预留，按结算单指定钱包支付。";
@@ -157,12 +169,15 @@ function renderControls() {
 function render() {
   const n = state.network || {},
     fuji = Number(n.chainId) === 43113;
+  const warning = [state.sourceError, n.error].filter(Boolean).join("；");
+  $("service-warning").hidden = !warning;
+  $("service-warning").textContent = warning;
   $("network-name").textContent = fuji ? "Fuji 测试网" : "本地链演示";
   $("network-description").textContent = n.configured
     ? fuji
       ? "Avalanche · Chain ID 43113 · 测试资金"
       : "本机隔离网络 · 测试资金"
-    : "出款网络未配置，暂不可执行结算";
+    : "出款网络暂不可用，请检查连接";
   for (const key of ["available", "pending", "paid"])
     $(key).textContent = precise(state.partner[key]);
   $("token-balance").textContent = precise(state.wallet?.token);
@@ -174,39 +189,43 @@ function render() {
     (state.partner.name || state.partner.id || "测试推广者");
   const rows = Array.isArray(state.payouts) ? state.payouts : [];
   $("record-count").textContent = rows.length + " 笔记录";
-  if (!rows.length)
-    $("ledger-content").innerHTML =
-      '<div class="empty"><strong>还没有结算记录</strong>佣金进入结算后，可在这里查看进度与回执。</div>';
-  else
-    $("ledger-content").innerHTML =
-      '<table class="table"><thead><tr><th scope="col">结算单 / 时间</th><th scope="col" class="number">金额 · USDC</th><th scope="col">收款钱包</th><th scope="col" class="status-cell">状态</th></tr></thead><tbody>' +
-      rows
-        .map(
-          (p) =>
-            '<tr><td><button class="receipt-button" data-receipt="' +
-            escapeHTML(p.id) +
-            '">' +
-            escapeHTML(short(p.id)) +
-            "<span>" +
-            escapeHTML(time(p.createdAt)) +
-            ' · 查看回执 ↗</span></button></td><td class="number">' +
-            escapeHTML(precise(p.amount)) +
-            '</td><td title="' +
-            escapeHTML(p.recipient) +
-            '">' +
-            escapeHTML(short(p.recipient)) +
-            '</td><td class="status-cell"><span class="badge ' +
-            (p.status === "completed"
-              ? "good"
-              : p.status === "blocked"
-                ? "warn"
-                : "") +
-            '">' +
-            escapeHTML(statuses[p.status] || p.status) +
-            "</span></td></tr>",
-        )
-        .join("") +
-      "</tbody></table>";
+  const signature = JSON.stringify(rows);
+  if (signature !== ledgerSignature) {
+    ledgerSignature = signature;
+    if (!rows.length)
+      $("ledger-content").innerHTML =
+        '<div class="empty"><strong>还没有结算记录</strong>佣金进入结算后，可在这里查看进度与回执。</div>';
+    else
+      $("ledger-content").innerHTML =
+        '<table class="table"><thead><tr><th scope="col">结算单 / 时间</th><th scope="col" class="number">金额 · USDC</th><th scope="col">收款钱包</th><th scope="col" class="status-cell">状态</th></tr></thead><tbody>' +
+        rows
+          .map(
+            (p) =>
+              '<tr><td><button class="receipt-button" data-receipt="' +
+              escapeHTML(p.id) +
+              '">' +
+              escapeHTML(short(p.id)) +
+              "<span>" +
+              escapeHTML(time(p.createdAt)) +
+              ' · 查看回执 ↗</span></button></td><td class="number">' +
+              escapeHTML(precise(p.amount)) +
+              '</td><td title="' +
+              escapeHTML(p.recipient) +
+              '">' +
+              escapeHTML(short(p.recipient)) +
+              '</td><td class="status-cell"><span class="badge ' +
+              (p.status === "completed"
+                ? "good"
+                : p.status === "blocked"
+                  ? "warn"
+                  : "") +
+              '">' +
+              escapeHTML(statuses[p.status] || p.status) +
+              "</span></td></tr>",
+          )
+          .join("") +
+        "</tbody></table>";
+  }
   renderControls();
   if (selectedReceipt) renderReceipt(selectedReceipt);
   $("sync-time").textContent =

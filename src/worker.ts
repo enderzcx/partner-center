@@ -1,5 +1,5 @@
-import type { RuntimeConfig } from './config.ts';
-import type { Store } from './store.ts';
+import type { RuntimeConfig } from "./config.ts";
+import type { Store } from "./store.ts";
 import {
   type Address,
   type Chain,
@@ -7,7 +7,7 @@ import {
   type Source,
   ServiceError,
   sanitizeError,
-} from './types.ts';
+} from "./types.ts";
 
 export type SettlementWorker = ReturnType<typeof createWorker>;
 
@@ -48,7 +48,7 @@ export function createWorker(opts: {
   };
 
   const completeConfirmed = async () => {
-    for (const row of opts.store.listByStatus(['confirmed'])) {
+    for (const row of opts.store.listByStatus(["confirmed"])) {
       try {
         await opts.source.complete(row);
         opts.store.completePayout(row.id);
@@ -62,14 +62,17 @@ export function createWorker(opts: {
     if (!row.txHash) return;
     try {
       const result = await opts.chain.inspect(payoutArg(row), row.txHash);
-      if (result === 'confirmed') opts.store.markConfirmed(row.id);
-      else if (result === 'reverted') {
-        opts.store.blockPayout(row.id, '链上回执显示这笔出款已回滚，已冻结待人工核查。');
+      if (result === "confirmed") opts.store.markConfirmed(row.id);
+      else if (result === "reverted") {
+        opts.store.blockPayout(
+          row.id,
+          "链上回执显示这笔出款已回滚，已冻结待人工核查。",
+        );
       }
       return result;
     } catch (err) {
       opts.store.setPayoutError(row.id, sanitizeError(err));
-      return 'uncertain' as const;
+      return "uncertain" as const;
     }
   };
 
@@ -84,12 +87,12 @@ export function createWorker(opts: {
   };
 
   const reconcile = async () => {
-    for (const row of opts.store.listByStatus(['prepared', 'broadcast'])) {
+    for (const row of opts.store.listByStatus(["prepared", "broadcast"])) {
       if (!row.txHash) continue;
       const result = await inspectRow(row);
-      if (result === 'confirmed' || result === 'reverted') continue;
+      if (result === "confirmed" || result === "reverted") continue;
       if (opts.store.isPaused()) continue;
-      if (result === 'pending' && row.rawTransaction) {
+      if (result === "pending" && row.rawTransaction) {
         await broadcastRow(row);
         const latest = opts.store.getPayout(row.id);
         if (latest?.txHash && !opts.store.isPaused()) await inspectRow(latest);
@@ -98,7 +101,7 @@ export function createWorker(opts: {
   };
 
   const reserveFixture = (paused: boolean, shouldStart: boolean) => {
-    if (paused || !shouldStart || opts.source.kind !== 'fixture') return;
+    if (paused || !shouldStart || opts.source.kind !== "fixture") return;
     const partner = opts.store.getPartner();
     if (!partner.wallet) return;
     try {
@@ -123,7 +126,11 @@ export function createWorker(opts: {
     if (!next.alreadyFrozen && !force && !partner.autoSettle) return;
     try {
       const prepared = await opts.chain.prepare(payoutArg(next));
-      opts.store.persistPrepared(next.id, prepared.rawTransaction, prepared.hash);
+      opts.store.persistPrepared(
+        next.id,
+        prepared.rawTransaction,
+        prepared.hash,
+      );
     } catch (err) {
       opts.store.setPayoutError(next.id, sanitizeError(err));
       return;
@@ -165,7 +172,9 @@ export function createWorker(opts: {
     start() {
       if (timer) return;
       timer = setInterval(() => {
-        void tick();
+        void tick().catch((err) => {
+          sourceError = sanitizeError(err);
+        });
       }, opts.config.tickMs);
     },
     stop() {

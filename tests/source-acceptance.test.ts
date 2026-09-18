@@ -147,3 +147,60 @@ test("already frozen source settles automatically without local wallet or auto s
     store.close();
   }
 });
+
+test("aggregate splits at single payout cap without stranding remaining income", async () => {
+  const store = createStore({ path: ":memory:" });
+  try {
+    store.setWallet(address);
+    store.setAutoSettle(true);
+    store.addCommission(1_000_000_000_000n);
+    store.addCommission(1_000_000n);
+    const worker = createWorker({
+      store,
+      chain: noFunds,
+      source: createFixtureSource(store),
+      config: cfg(),
+    });
+    await worker.tick();
+    await worker.tick();
+    expect(store.listPayouts()).toHaveLength(2);
+    expect(
+      store.listPayouts().every((p) => p.amount <= 1_000_000_000_000n),
+    ).toBe(true);
+    expect(store.getPartner().available).toBe(0n);
+    expect(store.getPartner().pending).toBe(1_000_001_000_000n);
+  } finally {
+    store.close();
+  }
+});
+test("non-advancing source pagination fails visibly instead of keeping worker busy forever", async () => {
+  const row = {
+    id: 1,
+    request_id: "page-regression-0001",
+    user_id: 1,
+    recipient: address,
+    amount_usdc: "1000000",
+    chain_id: 31337,
+    token,
+    status: "reserved",
+    created_at: 1,
+  };
+  const server = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: () => Response.json({ success: true, data: Array(100).fill(row) }),
+  });
+  const store = createStore({ path: ":memory:" });
+  try {
+    const source = createBeefApiSource(store, {
+      ...cfg(),
+      source: "beefapi",
+      beefapiBaseUrl: `http://127.0.0.1:${server.port}`,
+      beefapiToken: "test".repeat(8),
+    });
+    await expect(source.pull()).rejects.toThrow("分页未推进");
+  } finally {
+    server.stop(true);
+    store.close();
+  }
+});

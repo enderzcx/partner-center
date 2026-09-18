@@ -1,0 +1,17 @@
+{
+  "result": "PASS",
+  "source": "fixture",
+  "network": "local EVM 31337",
+  "payoutId": "0x8c327576c35ab2aea12b4aa53ea4ab4b5a92c847005db45a93204ccb44e8b2c8",
+  "transactionHash": "0x0afd9de6e34682310a218340335df50c4caf66a9d88723f9c3f29ffa76d9302d",
+  "amountMicroUSDC": "10000000",
+  "recipient": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+  "checks": [
+    "cookie auth",
+    "cross-origin denial",
+    "automatic settlement",
+    "real token delta",
+    "source completion",
+    "repeat tick no double payment"
+  ]
+}
