@@ -283,7 +283,7 @@ function renderOrders() {
       const hint = pending
         ? bound
           ? "不会向买家扣款。"
-          : "请先到「我的收益」绑定收款钱包。"
+          : auth.enabled ? "请推广者登录并绑定收款钱包。" : "请先到「我的收益」绑定收款钱包。"
         : orderError
           ? "支付已确认，结算尚未完成，请重试。"
           : order.commissionUsdc === "0"

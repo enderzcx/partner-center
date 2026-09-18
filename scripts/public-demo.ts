@@ -7,7 +7,7 @@ import { acquireProcessLock, type ProcessLock } from '../src/lock.ts';
 // Signing and authentication secrets are file-mounted, never baked into images.
 const folder = process.env.PARTNER_DATA_DIR ?? '/data';
 const secretFile = process.env.PARTNER_SECRET_FILE ?? '/run/secrets/partner-demo.json';
-const sourcePort = '18785';
+const sourcePort = '18784';
 const appPort = '4316';
 let source: ReturnType<typeof Bun.spawn> | undefined;
 let runtime: Awaited<ReturnType<typeof startFromEnv>> | undefined;
