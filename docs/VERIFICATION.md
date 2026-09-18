@@ -75,3 +75,11 @@ Ender 明确授权后，真实部署 Settlement、充值 1 测试 USDC，使用�
 - Go 独立审查 `20260918-152046-review-4eea4f06`：approve，无可执行发现。评审确认事务提取、订单唯一键回滚、支付事件幂等、冻结比例及双开关鉴权。限制保留：SQLite fixture 最大连接数1，多连接竞争与MySQL/PostgreSQL未做运行验证。
 - Ender 已追加授权本轮现有 Fuji 合约充值1测试USDC及10USD订单产生的1测试USDC付款。Fuji订单演示页已启动在 `http://127.0.0.1:4315`，独立持久库 `.local/orders-fuji/`。已创建 pending 订单 `fuji-order-demo-20260918-001`，冻结比例0.1；当前尚未绑定收款钱包，等待持有人签名，未进行本轮充值/付款。后续执行脚本 `.local/run-fuji-order.ts` 在签名前拒绝继续，严格核对唯一订单、指定收款地址、金额、来源结算单和原签名交易 journal。
 - 两个 Grok 开发/审查工作树已移除，任务回执归档在 `.local/grok-order-backend-receipts/` 和 `.local/grok-order-console-receipts/`；作者分支保留为本地审阅引用。
+
+## 2026-09-18 Fuji 订单闭环完成
+
+用户亲自在页面重新签名，将钱包从出款地址改绑为已授权收款地址 `0x831C5C93a221D8508ad4808C2A64D58B15f77c85`。服务端核对一致后，执行已授权的单笔充值及订单演示；未绕过钱包绑定。
+
+订单 `fuji-order-demo-20260918-001` / `global_6c1a68e9158845c9ba37fde7345a2013`：模拟实付10USD，创建时锁定比例0.1，既有 BeefAPI 支付完成逻辑实际记入1000000 micro-USDC佣金。定时器自动冻结/付款，收款钱包余额1→2测试USDC；来源结算单completed、withdrawal_id=1、pending=0、paid=1000000。重复确认和再次执行未重复付款。
+
+付款交易 `0x4d90fbc94781a485ff31834e98f43161e3c257b68b450771694d7c855f2f9a48`，receipt success，区块58457829已finalized。合约充值交易 `0x85ab27243343d8cb982a53c94d83a868d6db9fba6720254f064c5045f023e139`。完整公开凭证见 [Fuji订单验收](evidence/fuji-order-demo-2026-09-18.json)。此次是测试订单模拟支付、真实Fuji测试币出款，不是生产支付渠道收款验收。此前“等待签名”状态已由本节完成记录取代；当前单笔授权已执行，不可重复充值或新建付款。

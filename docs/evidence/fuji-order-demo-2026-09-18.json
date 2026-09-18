@@ -1,0 +1,61 @@
+{
+  "result": "PASS",
+  "chainId": 43113,
+  "contract": "0x5c905e43e0BB381534530d5e05DF56ab1f420899",
+  "token": "0x5425890298aed601595a70AB815c96711a31Bc65",
+  "order": {
+    "requestId": "fuji-order-demo-20260918-001",
+    "tradeNo": "global_6c1a68e9158845c9ba37fde7345a2013",
+    "paymentAmountMinor": "1000",
+    "commissionRate": "0.1",
+    "commissionUsdc": "1000000",
+    "status": "paid",
+    "recipient": "0x831C5C93a221D8508ad4808C2A64D58B15f77c85",
+    "error": null
+  },
+  "recipient": "0x831C5C93a221D8508ad4808C2A64D58B15f77c85",
+  "amountUSDC": "1",
+  "beforeUSDC": "1",
+  "afterUSDC": "2",
+  "fundingHash": "0x85ab27243343d8cb982a53c94d83a868d6db9fba6720254f064c5045f023e139",
+  "payout": {
+    "id": "0xb3177e9bc9f64f700d0f480d8d64dbe6417d34a3b9dd8d6f36aafedded93edfe",
+    "sourceId": "beefapi:order-fuji-order-demo-20260918-001:1",
+    "recipient": "0x831C5C93a221D8508ad4808C2A64D58B15f77c85",
+    "amount": "1000000",
+    "status": "completed",
+    "txHash": "0x4d90fbc94781a485ff31834e98f43161e3c257b68b450771694d7c855f2f9a48",
+    "error": null,
+    "createdAt": 1789718160000
+  },
+  "sourceReservation": {
+    "id": 1,
+    "request_id": "order-fuji-order-demo-20260918-001",
+    "user_id": 1,
+    "recipient": "0x831c5c93a221d8508ad4808c2a64d58b15f77c85",
+    "amount_usdc": "1000000",
+    "quota": 500000,
+    "status": "completed",
+    "chain_id": 43113,
+    "token": "0x5425890298aed601595a70ab815c96711a31bc65",
+    "transaction_hash": "0x4d90fbc94781a485ff31834e98f43161e3c257b68b450771694d7c855f2f9a48",
+    "withdrawal_id": 1,
+    "created_at": 1789718160,
+    "updated_at": 1789718179
+  },
+  "sourceBalances": {
+    "id": "demo-partner",
+    "name": "演示推广者",
+    "wallet": "0x831C5C93a221D8508ad4808C2A64D58B15f77c85",
+    "autoSettle": false,
+    "available": "0",
+    "pending": "0",
+    "paid": "1000000",
+    "consumed": ""
+  },
+  "receiptStatus": "success",
+  "block": "58457829",
+  "finalizedBlock": "58457829",
+  "duplicatePayment": false,
+  "walletBinding": "user-signed via demo challenge"
+}
