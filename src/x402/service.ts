@@ -198,11 +198,6 @@ export function createX402Service(opts: {
       const verified = await inspectHash(row, recovered);
       if (verified) return verified;
     }
-    const nowSec = BigInt(Math.floor(opts.now() / 1000));
-    if (BigInt(payload.payload.authorization.validBefore) <= nowSec) {
-      opts.store.blockX402(row.requestId, "付款未完成。");
-      throw new ServiceError(409, "付款未完成。");
-    }
     throw new ServiceError(502, "付款正在确认，请稍后重试。");
   };
 
@@ -219,6 +214,10 @@ export function createX402Service(opts: {
     if (recovered) {
       const verified = await inspectHash(row, recovered);
       if (verified) return verified;
+    }
+    // Expiry prevents a new submission, not recovery of an already broadcast payment.
+    if (BigInt(payload.payload.authorization.validBefore) <= BigInt(Math.floor(opts.now() / 1000))) {
+      throw new ServiceError(502, "付款正在确认，请稍后重试。");
     }
     const settled = await opts.facilitator.settle(payload, requirementsOf(row));
     if (settled.kind === "timeout" || settled.kind === "pending") {
@@ -251,6 +250,7 @@ export function createX402Service(opts: {
   return {
     publicPayment,
     persistCreatedOrder(order: SourceOrder) {
+      if (order.status === "paid" && !opts.store.getX402Order(order.requestId)) return;
       opts.store.createX402Order({
         requestId: order.requestId,
         payTo: getAddress(opts.config.chain.contract) as Address,

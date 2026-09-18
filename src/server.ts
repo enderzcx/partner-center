@@ -446,10 +446,16 @@ export function createApp(opts: {
   const payDemoOrder = async (requestIdRaw: string): Promise<PublicOrder> => {
     requireOrderDemo();
     const requestId = parseOrderRequestId(requestIdRaw);
-    if (x402Enabled || opts.store.getX402Order(requestId)) {
-      throw new ServiceError(403, "请完成订单付款。");
-    }
-    return lockOrder(requestId, () => awardDemoOrder(requestId));
+    return lockOrder(requestId, async () => {
+      if (opts.store.getX402Order(requestId)) {
+        throw new ServiceError(403, "请完成订单付款。");
+      }
+      if (x402Enabled) {
+        const existing = (await opts.source.listOrders?.())?.find(order => order.requestId === requestId);
+        if (existing?.status !== "paid") throw new ServiceError(403, "请完成订单付款。");
+      }
+      return awardDemoOrder(requestId);
+    });
   };
 
   const state = async (role: AuthRole | null): Promise<AppState> => {
