@@ -2,7 +2,13 @@
 
 独立的佣金自动结算应用，BeefAPI 为第一个测试接入方。商家提供已确认并冻结的佣金单，服务将测试 USDC 支付给推广者，并把核验结果回写原账本。
 
-**当前阶段：隔离本地原型，不是公网生产服务。** 当前实现与验收边界见 [合同](docs/CONTRACT.md)。真实执行结果见 [验证记录](docs/VERIFICATION.md)。
+**当前已验收：Avalanche Fuji 公网测试订单收款与自动返佣闭环。** 本工作树正在将完整海外站 React 前端迁入伙伴中心，迁移范围见 [前端验收合同](docs/OVERSEAS-ACCEPTANCE.md)。公网发布状态与链上证据以 [验证记录](docs/VERIFICATION.md) 为准。
+
+## 前端构建
+
+前端源码位于 `web/`。先执行 `cd web && bun install --frozen-lockfile && bun run build`，再运行根目录服务。服务默认提供 `web/dist`，支持明确的伙伴中心页面路径及构建资源；`SETTLEMENT_PUBLIC_DIR` 可以覆盖该目录。不要把旧 `public/index.html` 作为新版入口。现有 `public/app.js` 保留为已验证 x402 客户端的源码依赖，随 React 构建打包。
+
+下面的本地链、来源和资金示例是原型开发说明，不代表已连接生产账本。
 
 ## 本地运行
 
