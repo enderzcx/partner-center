@@ -1,0 +1,25 @@
+:root {
+  --sidebar-width: 238px;
+  --sidebar-width-collapsed: 60px;
+  --sidebar-current-width: var(--sidebar-width);
+}
+
+body.sidebar-collapsed {
+  --sidebar-current-width: var(--sidebar-width-collapsed);
+}
+
+html,
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+body {
+  color: var(--global-ink);
+  background: var(--global-canvas);
+  font-family: var(--global-display);
+}
+
+#root {
+  min-height: 100dvh;
+}

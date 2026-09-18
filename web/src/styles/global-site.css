@@ -1,0 +1,578 @@
+@font-face {
+  font-family: 'Schibsted Grotesk';
+  src: url('/fonts/schibsted-latin.woff2') format('woff2');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/geist-mono-latin.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --global-canvas: oklch(0.958 0.004 250);
+  --global-paper: oklch(0.982 0.003 255);
+  --global-card: oklch(0.995 0.002 255);
+  --global-surface: oklch(0.968 0.004 252);
+  --global-ink: oklch(0.225 0.015 262);
+  --global-soft: oklch(0.45 0.018 258);
+  --global-dim: oklch(0.6 0.014 255);
+  --global-line: color-mix(in oklch, var(--global-ink) 13%, transparent);
+  --global-line-strong: color-mix(in oklch, var(--global-ink) 23%, transparent);
+  --global-accent: oklch(0.5 0.19 264);
+  --global-accent-deep: oklch(0.42 0.17 265);
+  --global-accent-soft: color-mix(
+    in oklch,
+    var(--global-accent) 10%,
+    transparent
+  );
+  --global-green: oklch(0.52 0.1 162);
+  --global-display: 'Schibsted Grotesk', 'Helvetica Neue', Arial, 'PingFang SC',
+    'Hiragino Sans GB', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  --global-mono: 'Geist Mono', 'JetBrains Mono', 'SFMono-Regular', Menlo,
+    Consolas, monospace;
+  /* Type scale: nothing user-facing renders below --global-text-2xs. */
+  --global-text-2xs: 11px;
+  --global-text-xs: 12px;
+  --global-text-sm: 13px;
+  --global-text-base: 14px;
+  --global-text-md: 16px;
+  --global-text-lg: 18px;
+  /* Pill = primary actions. sm = chips and inline code. 0 = paper: code, tables, receipts. */
+  --global-radius-none: 0;
+  --global-radius-sm: 6px;
+  --global-radius-md: 10px;
+  --global-radius-lg: 16px;
+  --global-radius-pill: 999px;
+}
+
+html.dark {
+  color-scheme: dark;
+  --global-canvas: oklch(0 0 0);
+  --global-paper: oklch(0.18 0.011 258);
+  --global-card: oklch(0.205 0.012 258);
+  --global-surface: oklch(0.225 0.013 258);
+  --global-ink: oklch(0.93 0.008 252);
+  --global-soft: oklch(0.72 0.012 252);
+  --global-dim: oklch(0.57 0.012 252);
+  --global-line: color-mix(in oklch, var(--global-ink) 11%, transparent);
+  --global-line-strong: color-mix(in oklch, var(--global-ink) 20%, transparent);
+  --global-accent: oklch(0.68 0.14 262);
+  --global-accent-deep: oklch(0.76 0.11 260);
+  --global-accent-soft: color-mix(
+    in oklch,
+    var(--global-accent) 12%,
+    transparent
+  );
+  --global-green: oklch(0.7 0.1 162);
+}
+
+body.global-site-app {
+  color: var(--global-ink);
+  background: var(--global-canvas);
+  font-family: var(--global-display);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* The global surface remaps the domestic ramen-theme tokens so shared
+     chrome (header, sidebar, Semi components) resolves to the cold palette. */
+  --paper: var(--global-paper);
+  --paper-2: var(--global-surface);
+  --broth: var(--global-accent);
+  --broth-dark: var(--global-accent-deep);
+  --ink: var(--global-ink);
+  --ink-soft: color-mix(in oklch, var(--global-ink) 68%, transparent);
+  --ink-mute: color-mix(in oklch, var(--global-ink) 46%, transparent);
+  --wheat: var(--global-surface);
+  --chive: var(--global-green);
+  --card-bg: var(--global-card);
+  --card-border: var(--global-line);
+  --semi-color-primary: var(--global-accent);
+  --semi-color-primary-hover: color-mix(in oklch, var(--global-accent) 84%, white);
+  --semi-color-primary-active: var(--global-accent-deep);
+  --semi-color-primary-disabled: color-mix(
+    in oklch,
+    var(--global-accent) 34%,
+    var(--global-paper)
+  );
+  --semi-color-primary-light-default: color-mix(
+    in oklch,
+    var(--global-accent) 8%,
+    transparent
+  );
+  --semi-color-primary-light-hover: color-mix(
+    in oklch,
+    var(--global-accent) 14%,
+    transparent
+  );
+  --semi-color-primary-light-active: color-mix(
+    in oklch,
+    var(--global-accent) 22%,
+    transparent
+  );
+  --semi-color-link: var(--global-accent);
+  --semi-color-link-hover: color-mix(in oklch, var(--global-accent) 84%, white);
+  --semi-color-link-active: var(--global-accent-deep);
+}
+
+/* Disable the domestic paper-noise texture on the global surface. */
+html:not(.dark) body.global-site-app {
+  background-color: var(--global-canvas);
+  background-image: none;
+}
+
+html:not(.dark) body.global-site-app::before {
+  content: none;
+}
+
+body.global-site-app .sidebar-nav-item:hover {
+  background-color: color-mix(
+    in oklch,
+    var(--global-accent) 7%,
+    transparent
+  ) !important;
+  color: var(--global-accent-deep) !important;
+}
+
+body.global-site-app .sidebar-nav-item-selected {
+  background-color: var(--global-accent-soft) !important;
+  color: var(--global-accent-deep) !important;
+}
+
+body.global-site-app *,
+body.global-site-app *::before,
+body.global-site-app *::after {
+  box-sizing: border-box;
+}
+
+body.global-site-app a,
+body.global-site-app button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body.global-site-app :focus-visible {
+  outline: 3px solid color-mix(in oklch, var(--global-accent) 46%, transparent);
+  outline-offset: 3px;
+}
+
+/* Minimal wordmark for the global surface: cobalt tile + set name. */
+/* BFLabs monogram: intrinsic 12:7 aspect, colored by the surrounding text.
+   The brand kit renders it about 36px wide; smaller sizes turn to mush. */
+.global-brand-mark {
+  width: 31px;
+  height: auto;
+  flex: 0 0 auto;
+}
+
+.global-header-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--global-ink);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+
+body.global-site-app .global-auth-inline-brand img {
+  display: none;
+}
+
+body.global-site-app .global-auth-inline-brand::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 2px;
+  background: var(--global-accent);
+}
+
+.global-skip-link {
+  position: fixed;
+  z-index: 2000;
+  top: 10px;
+  left: 10px;
+  padding: 10px 14px;
+  transform: translateY(-160%);
+  border-radius: var(--global-radius-sm);
+  color: var(--global-paper);
+  background: var(--global-ink);
+  font-size: var(--global-text-sm);
+  text-decoration: none;
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.global-skip-link:focus {
+  transform: translateY(0);
+}
+
+body.global-site-app .bf-header-bar {
+  color: var(--global-ink);
+  background: color-mix(
+    in oklch,
+    var(--global-paper) 96%,
+    transparent
+  ) !important;
+  border-bottom: 1px solid var(--global-line);
+  box-shadow: none;
+}
+
+body.global-site-app .bf-header-bar > div {
+  width: min(1240px, calc(100% - 48px));
+  margin-inline: auto;
+  padding-inline: 0;
+}
+
+body.global-site-app .bf-header-bar .semi-typography {
+  color: var(--global-ink) !important;
+  font-family: var(--global-display);
+}
+
+body.global-site-app .bf-header-bar a {
+  color: var(--global-ink);
+  text-decoration: none;
+}
+
+body.global-site-app .bf-header-bar button,
+body.global-site-app .bf-header-bar summary {
+  min-height: 40px;
+  border-radius: var(--global-radius-pill);
+}
+
+body.global-site-app .bf-header-bar .semi-button-primary {
+  color: var(--global-paper);
+  background: var(--global-ink);
+  border-color: var(--global-ink);
+}
+
+.global-auth-root {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  color: var(--global-ink);
+  background: var(--global-paper);
+  --global-home-max: 1240px;
+  --global-home-ink: var(--global-ink);
+  --global-home-soft: color-mix(in oklch, var(--global-ink) 68%, transparent);
+  --global-home-line: var(--global-line);
+}
+
+.global-auth-page {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(48px, 6vw, 88px) max(24px, env(safe-area-inset-left)) 28px;
+  overflow-x: clip;
+}
+
+.global-auth-shell {
+  width: min(1120px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.75fr);
+  gap: clamp(64px, 9vw, 132px);
+  align-items: center;
+  margin: auto;
+}
+
+.global-auth-story {
+  min-width: 0;
+}
+
+
+.global-auth-story h1 {
+  max-width: 680px;
+  margin: 0;
+  font-size: clamp(48px, 6vw, 82px);
+  font-weight: 500;
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.global-auth-story-copy {
+  max-width: 520px;
+  margin: 26px 0 0;
+  color: var(--global-soft);
+  font-size: 17px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.global-auth-form-panel {
+  min-width: 0;
+  padding: 34px;
+  background: color-mix(in oklch, var(--global-card) 92%, transparent);
+  box-shadow: 0 18px 54px rgba(16, 22, 34, 0.08);
+}
+
+.global-auth-render,
+.global-auth-form-inner {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+.global-auth-page .global-auth-inline-brand {
+  display: none;
+}
+
+.global-auth-inline-brand {
+  margin-bottom: 24px !important;
+  justify-content: flex-start !important;
+}
+
+.global-auth-inline-brand img {
+  width: 34px;
+  height: 34px;
+}
+
+.global-auth-inline-brand .semi-typography {
+  color: var(--global-ink) !important;
+  font-size: 18px !important;
+  letter-spacing: -0.02em;
+}
+
+.global-auth-card {
+  overflow: visible !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.global-auth-card .semi-card-body {
+  padding: 0 !important;
+}
+
+.global-auth-card-title {
+  justify-content: flex-start !important;
+  padding: 0 0 8px !important;
+}
+
+.global-auth-card-title .semi-typography {
+  margin: 0 !important;
+  color: var(--global-ink) !important;
+  font-size: 28px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.03em;
+}
+
+.global-auth-card .px-2 {
+  padding: 24px 0 0 !important;
+}
+
+.global-auth-page .semi-form-field-label-text {
+  color: var(--global-soft);
+  font-size: var(--global-text-xs);
+  font-weight: 600;
+}
+
+.global-auth-page .semi-input-wrapper,
+.global-auth-page .semi-input-wrapper-focus {
+  min-height: 46px;
+  border: 1px solid var(--global-line-strong);
+  border-radius: var(--global-radius-sm);
+  color: var(--global-ink);
+  background: var(--global-card);
+  box-shadow: none;
+}
+
+.global-auth-page .semi-input-wrapper:hover {
+  border-color: var(--global-ink);
+}
+
+.global-auth-page .semi-input,
+.global-auth-page .semi-input::placeholder {
+  color: var(--global-ink);
+  font-family: var(--global-display);
+}
+
+.global-auth-page .semi-input::placeholder {
+  color: var(--global-dim);
+}
+
+.global-auth-page .semi-button {
+  min-height: 46px;
+  border-radius: var(--global-radius-pill) !important;
+  font-family: var(--global-display);
+  font-size: var(--global-text-base);
+  font-weight: 700;
+  transition-property: transform, color, background-color, border-color;
+  transition-duration: 160ms;
+}
+
+.global-auth-page .semi-button:active {
+  transform: scale(0.96);
+}
+
+.global-auth-page .semi-button-primary {
+  color: var(--global-paper) !important;
+  background: var(--global-ink) !important;
+  border-color: var(--global-ink) !important;
+}
+
+.global-auth-page .global-auth-submit {
+  width: fit-content !important;
+  min-width: 0;
+  padding-inline: 28px !important;
+  margin-inline: auto;
+  align-self: center;
+  display: inline-flex !important;
+}
+
+.global-auth-page .semi-button-tertiary {
+  color: var(--global-ink) !important;
+  background: transparent !important;
+  border-color: var(--global-line-strong) !important;
+}
+
+.global-auth-page .semi-divider {
+  color: var(--global-dim);
+  border-color: var(--global-line);
+}
+
+.global-auth-page .semi-typography,
+.global-auth-page .semi-typography a,
+.global-auth-page a {
+  color: var(--global-soft);
+}
+
+.global-auth-page .semi-typography a,
+.global-auth-page a {
+  text-decoration-color: color-mix(
+    in oklch,
+    var(--global-accent) 52%,
+    transparent
+  );
+  text-underline-offset: 3px;
+}
+
+.global-auth-confirm-page > .blur-ball {
+  display: none;
+}
+
+.global-auth-confirm-page > .w-full {
+  width: min(430px, 100%);
+  max-width: none;
+  margin: auto;
+}
+
+.global-auth-confirm-page .semi-card {
+  border: 0;
+  border-top: 3px solid var(--global-ink);
+  border-radius: 0 !important;
+  background: var(--global-card);
+  box-shadow: 0 18px 54px rgba(16, 22, 34, 0.08);
+}
+
+.global-not-found {
+  min-height: calc(100dvh - 64px);
+  display: grid;
+  place-items: center;
+  padding: 40px 24px;
+  color: var(--global-ink);
+  background: var(--global-paper);
+}
+
+.global-not-found-inner {
+  width: min(760px, 100%);
+  border-top: 3px solid var(--global-ink);
+  padding-top: 30px;
+}
+
+.global-not-found code {
+  color: var(--global-accent-deep);
+  font: 600 var(--global-text-xs) / 1 var(--global-mono);
+}
+
+.global-not-found h1 {
+  max-width: 660px;
+  margin: 18px 0;
+  font-size: clamp(48px, 8vw, 86px);
+  font-weight: 500;
+  line-height: 0.96;
+  letter-spacing: -0.04em;
+}
+
+.global-not-found p {
+  max-width: 560px;
+  color: var(--global-soft);
+  font-size: var(--global-text-md);
+}
+
+.global-not-found nav {
+  display: flex;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.global-not-found a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 18px;
+  border: 1px solid var(--global-line-strong);
+  border-radius: var(--global-radius-pill);
+  color: var(--global-ink);
+  text-decoration: none;
+}
+
+.global-not-found a:first-child {
+  color: var(--global-paper);
+  background: var(--global-ink);
+  border-color: var(--global-ink);
+}
+
+@media (hover: hover) {
+  .global-auth-page .semi-button:hover,
+  .global-not-found a:hover {
+    transform: translateY(-1px);
+  }
+
+}
+
+@media (max-width: 820px) {
+  body.global-site-app .bf-header-bar > div {
+    width: min(100% - 24px, 1240px);
+  }
+
+  .global-auth-shell {
+    grid-template-columns: 1fr;
+    gap: 38px;
+  }
+
+  .global-auth-story h1 {
+    font-size: clamp(46px, 13vw, 64px);
+  }
+
+  .global-auth-form-panel {
+    padding: 26px 22px;
+  }
+
+}
+
+@media (max-width: 520px) {
+  .global-auth-story-copy {
+    font-size: 15px;
+  }
+
+  .global-not-found nav {
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .global-skip-link,
+  .global-auth-page .semi-button {
+    transition: none;
+  }
+}
