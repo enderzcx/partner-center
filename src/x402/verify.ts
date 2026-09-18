@@ -32,33 +32,25 @@ export function receiptMatchesPayment(input: {
 }): boolean {
   const { receipt, token, payTo, payer, amount, nonce } = input;
   if (receipt.status !== "success") return false;
-  if (!same(receipt.to, token)) return false;
-  let used = false;
-  let transfer = false;
-  for (const log of receipt.logs) {
+  // Circle emits AuthorizationUsed immediately before that authorization's Transfer.
+  // Match the adjacent pair: a separate transfer in a Multicall batch is not proof.
+  for (let i = 0; i < receipt.logs.length; i++) {
+    const log = receipt.logs[i]!;
     if (!same(log.address, token)) continue;
     try {
-      const event = decodeEventLog({
-        abi: eip3009Abi,
-        data: log.data,
-        topics: log.topics,
-      });
-      if (event.eventName === "AuthorizationUsed") {
-        used =
-          same(String(event.args.authorizer), payer) &&
-          String(event.args.nonce).toLowerCase() === nonce.toLowerCase();
-      }
-      if (event.eventName === "Transfer") {
-        transfer ||=
-          same(String(event.args.from), payer) &&
-          same(String(event.args.to), payTo) &&
-          event.args.value === amount;
-      }
-    } catch {
-      /* unrelated token logs are not payment evidence */
-    }
+      const event = decodeEventLog({ abi: eip3009Abi, data: log.data, topics: log.topics });
+      if (event.eventName !== "AuthorizationUsed" ||
+          !same(String(event.args.authorizer), payer) ||
+          String(event.args.nonce).toLowerCase() !== nonce.toLowerCase()) continue;
+      const next = receipt.logs[i + 1];
+      if (!next || !same(next.address, token)) return false;
+      const transfer = decodeEventLog({ abi: eip3009Abi, data: next.data, topics: next.topics });
+      return transfer.eventName === "Transfer" &&
+        same(String(transfer.args.from), payer) &&
+        same(String(transfer.args.to), payTo) && transfer.args.value === amount;
+    } catch { /* unrelated or malformed logs are not payment evidence */ }
   }
-  return used && transfer;
+  return false;
 }
 
 export function createRpcX402Chain(input: {
