@@ -1,0 +1,59 @@
+{
+  "result": "PASS",
+  "network": "local EVM 31337",
+  "requestId": "e2e-b95b866e-d9d1-48e0-81b8-a09ab6c482c5",
+  "created": {
+    "order": {
+      "requestId": "e2e-b95b866e-d9d1-48e0-81b8-a09ab6c482c5",
+      "tradeNo": "global_3d591a3ad99649a2b7b69fdd913b45f5",
+      "paymentAmountMinor": "1000",
+      "commissionRate": "0.1",
+      "commissionUsdc": "0",
+      "status": "pending",
+      "recipient": "",
+      "error": null
+    }
+  },
+  "paid": {
+    "order": {
+      "requestId": "e2e-b95b866e-d9d1-48e0-81b8-a09ab6c482c5",
+      "tradeNo": "global_3d591a3ad99649a2b7b69fdd913b45f5",
+      "paymentAmountMinor": "1000",
+      "commissionRate": "0.1",
+      "commissionUsdc": "1000000",
+      "status": "paid",
+      "recipient": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+      "error": null
+    }
+  },
+  "payout": {
+    "id": "0xeee0fac025ef3af26e94f062639b1a52877833c7aa000c71df22e2e7ac48de89",
+    "sourceId": "beefapi:order-e2e-b95b866e-d9d1-48e0-81b8-a09ab6c482c5:2",
+    "recipient": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+    "amount": "1000000",
+    "status": "completed",
+    "txHash": "0x00cb615bbb2a389bde2f897132a6e9a444f38c43716e84afdd37b1438ddfad58",
+    "error": null,
+    "createdAt": 1789716344000
+  },
+  "recipientBefore": "32000000",
+  "recipientAfter": "33000000",
+  "sourceBalances": {
+    "id": "demo-partner",
+    "name": "演示推广者",
+    "wallet": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+    "autoSettle": false,
+    "available": "0",
+    "pending": "0",
+    "paid": "2000000",
+    "consumed": ""
+  },
+  "checks": [
+    "signed wallet binding",
+    "real BeefAPI test order",
+    "locked rate commission award",
+    "automatic payout",
+    "source completion",
+    "payment replay no duplicate"
+  ]
+}

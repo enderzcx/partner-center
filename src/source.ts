@@ -23,7 +23,7 @@ export const DEFAULT_PAYMENT_AMOUNT_MINOR = "1000";
 export const ORDER_RESERVATION_PREFIX = "order-";
 
 const PAYMENT_MINOR_RE = /^(10000|[1-9][0-9]{0,3})$/;
-const ORDER_REQUEST_ID_RE = /^[a-z0-9][a-z0-9_-]{9,73}$/;
+const ORDER_REQUEST_ID_RE = /^[a-z0-9][a-z0-9_-]{15,74}$/;
 const TRADE_NO_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/;
 const COMMISSION_USDC_RE = /^(0|[1-9][0-9]*)$/;
 
@@ -300,7 +300,7 @@ export function createBeefApiSource(
     return { status: res.status, json };
   };
 
-  const parseRow = (raw: unknown): SourceItem | "skip" => {
+  const parseRow = (raw: unknown, allowCompleted = false): SourceItem | "skip" => {
     const row = asRecord(raw);
     if (Number(row.user_id) !== config.partnerUserId) return "skip";
     const id = Number(row.id);
@@ -318,7 +318,10 @@ export function createBeefApiSource(
     ) {
       throw new ServiceError(502, "来源结算单代币与当前配置不一致。");
     }
-    if (String(row.status) !== "reserved") return "skip";
+    if (String(row.status) !== "reserved") {
+      if (!allowCompleted || row.status !== "completed" ||
+          typeof row.transaction_hash !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(row.transaction_hash)) return "skip";
+    }
     const recipientRaw = String(row.recipient ?? "");
     if (!isAddress(recipientRaw, { strict: false })) {
       throw new ServiceError(502, "来源结算单收款地址无效。");
@@ -471,9 +474,7 @@ export function createBeefApiSource(
       if (
         parsed === "skip" ||
         parsed.requestId !== requestId ||
-        parsed.paymentAmountMinor !== paymentAmountMinor ||
-        parsed.status !== "pending" ||
-        parsed.commissionUsdc !== "0"
+        parsed.paymentAmountMinor !== paymentAmountMinor
       ) {
         throw new ServiceError(502, "来源订单格式无法识别。");
       }
@@ -519,7 +520,7 @@ export function createBeefApiSource(
       if (status === 404 || status !== 200) {
         throw new ServiceError(502, "来源服务暂时不可用。");
       }
-      const parsed = parseRow(requireEnvelope(json));
+      const parsed = parseRow(requireEnvelope(json), true);
       if (parsed === "skip") {
         throw new ServiceError(502, "来源结算单无法导入。");
       }

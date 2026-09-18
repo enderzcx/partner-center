@@ -44,7 +44,7 @@ BeefAPI 适配代码位于独立工作树 `codex/fuji-settlement`。它增加默
 
 ## Fuji 联调所需
 
-当前只有本地部署授权。以下资料准备好并授权测试部署后才能执行 Fuji 写入：
+已完成一次明确授权的 Fuji 部署及 1 测试 USDC 出款，凭证见 `docs/evidence/fuji-acceptance-2026-09-18.json`。新增付款需按当前金额和收款地址授权；订单驱动演示入口见 [ORDER-DEMO.md](docs/ORDER-DEMO.md)。以下是 Fuji 执行条件：
 
 1. 商家管理员、专用执行钱包和推广者收款钱包的公开地址。
 2. 执行钱包的测试 AVAX、出款合约的测试 USDC。

@@ -185,13 +185,11 @@ export function createApp(opts: {
 
   const lockOrder = <T>(requestId: string, fn: () => Promise<T>): Promise<T> => {
     const run = (orderLocks.get(requestId) ?? Promise.resolve()).then(fn, fn);
-    orderLocks.set(
-      requestId,
-      run.then(
-        () => undefined,
-        () => undefined,
-      ),
-    );
+    const settled = run.then(() => undefined, () => undefined);
+    orderLocks.set(requestId, settled);
+    void settled.then(() => {
+      if (orderLocks.get(requestId) === settled) orderLocks.delete(requestId);
+    });
     return run;
   };
 
@@ -268,7 +266,7 @@ export function createApp(opts: {
       body.payment_amount_minor,
       DEFAULT_PAYMENT_AMOUNT_MINOR,
     );
-    const requestId = crypto.randomUUID();
+    const requestId = body.request_id === undefined ? crypto.randomUUID() : parseOrderRequestId(body.request_id);
     const order = await opts.source.createOrder({
       requestId,
       paymentAmountMinor,

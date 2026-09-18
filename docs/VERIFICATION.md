@@ -61,3 +61,14 @@ Grok 临时工作树已移除，原作者分支保留作为本地审阅引用，
 Ender 明确授权后，真实部署 Settlement、充值 1 测试 USDC，使用现有结算 worker 的自动调度完成 BeefAPI 临时测试库中的冻结单。收款地址余额 0 → 1 USDC；来源记录 completed、withdrawal_id=1、pending=0、paid=1000000。重复执行两次 worker tick 没有重复出款。最终 RPC 读回再次核对 receipt success、finalized block、合约 paid 标记及收款余额。
 
 公开凭证见 [Fuji 验收记录](evidence/fuji-acceptance-2026-09-18.json)。此次使用真实 Fuji 网络及测试代币，不是生产 BeefAPI 余额验证。临时来源服务和 Fuji worker 验收后停止；现有 4311 演示预览仍连接本地测试链。执行私钥仍仅从用户指定文件在内存中读取；未进入版本库或前端。
+
+## 2026-09-18 订单驱动本地闭环
+
+- Go 作者提交 `6a52be92af`，整合 `b05e3b1b79`；订单台作者提交 `407b790`，整合 `b3c5fa5`。主会话拥有启动器、真实接口联调、恢复修复和浏览器验收。仅本地提交，无推送/上线。
+- Go 主会话执行 `go test ./model ./controller -run 'TestSettlement|TestApplyStripePaymentEvent|TestCreateGlobalPaymentOrder|TestAffiliate' -count=1` 通过；controller fixture 重新编译，repo governance 通过。
+- 独立服务 `bun run verify`：63 pass、0 fail、480 assertions；脚本语法通过。测试包括下单锁比例、0比例、签名绑定、失败后改钱包不改原单、并发重试、已完成结算单重放、创建请求编号保留。
+- 真实 Go HTTP + 本地 EVM：从零佣金开始，10 USD 测试订单在现有支付完成/返佣代码中产生1 USDC，定时器自动出款并回写来源。首次独立联调抓到 completed 重放被 reserved-only 解析器拒绝的问题，已修复；没有重复付款。后续重放创建、重放付款和重复执行均通过。凭证 `docs/evidence/order-demo-local.json`。
+- 中断场景：在创建订单后仅完成来源模拟支付，尚未冻结，停止并重新启动配套服务；页面出现“继续结算”，点击后仅支付一次。此前已完成订单及交易哈希保持不变。凭证 `docs/evidence/order-demo-recovery.json`。这是本地阶段边界故障模拟，不声称已做操作系统崩溃或 Fuji 故障演练。
+- 浏览器1440/390/320px无横向溢出，已到账状态与API一致；轮询后订单DOM节点保持不变，避免替换按钮。截图 `.local/order-demo-*.png`。同账本第二启动器被进程锁拒绝，原服务仍HTTP200。
+- 独立 Grok UI审查 `20260918-152430-review-3bf4a062` 的四项发现已逐项复核修复：已付款未冻结恢复入口、completed重放、轮询DOM替换、创建请求重试编号。没有采纳把“已记入佣金”误写为“未记入”的建议文案。
+- 当前演示入口 `http://127.0.0.1:4314`，配套持久测试库在 `.local/orders-local/`；旧4311演示已停止以避免同一本地执行钱包并发签名。此轮没有新增 Fuji 转账。新的 Fuji 订单流程仍需明确单笔授权及收款钱包持有人在页面签名；此前Fuji单笔实测凭证保留，不替代本轮验证。

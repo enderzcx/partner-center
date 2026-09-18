@@ -1,0 +1,81 @@
+{
+  "result": "PASS",
+  "scenario": "source paid before reservation; restart then continue via browser",
+  "orderId": "5b56357b-0e98-4d3c-9321-d74406dcbe8e",
+  "orders": [
+    {
+      "requestId": "66e0d9cf-0608-4e81-94f8-09b6ea7629f7",
+      "tradeNo": "global_ff269210cf0b4096ab4767fd5dbdca8c",
+      "paymentAmountMinor": "1000",
+      "commissionRate": "0.1",
+      "commissionUsdc": "1000000",
+      "status": "paid",
+      "recipient": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+      "error": "来源结算单无法导入。"
+    },
+    {
+      "requestId": "e2e-b95b866e-d9d1-48e0-81b8-a09ab6c482c5",
+      "tradeNo": "global_3d591a3ad99649a2b7b69fdd913b45f5",
+      "paymentAmountMinor": "1000",
+      "commissionRate": "0.1",
+      "commissionUsdc": "1000000",
+      "status": "paid",
+      "recipient": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+      "error": null
+    },
+    {
+      "requestId": "5b56357b-0e98-4d3c-9321-d74406dcbe8e",
+      "tradeNo": "global_8b9271cf958c434ca76259c0a3630324",
+      "paymentAmountMinor": "1000",
+      "commissionRate": "0.1",
+      "commissionUsdc": "1000000",
+      "status": "paid",
+      "recipient": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+      "error": null
+    }
+  ],
+  "payouts": [
+    {
+      "id": "0x6b8f4a54d1bbc4982752bf8bbdfa8618d32ffc19de00636f6fa04a1b8b7d974e",
+      "sourceId": "beefapi:order-5b56357b-0e98-4d3c-9321-d74406dcbe8e:3",
+      "recipient": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+      "amount": "1000000",
+      "status": "completed",
+      "txHash": "0xfae924157ed13a529d0eadb6b4976f59e0e61fb9e16975d546f5c72f6f3eb432",
+      "error": null,
+      "createdAt": 1789716452000
+    },
+    {
+      "id": "0xeee0fac025ef3af26e94f062639b1a52877833c7aa000c71df22e2e7ac48de89",
+      "sourceId": "beefapi:order-e2e-b95b866e-d9d1-48e0-81b8-a09ab6c482c5:2",
+      "recipient": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+      "amount": "1000000",
+      "status": "completed",
+      "txHash": "0x00cb615bbb2a389bde2f897132a6e9a444f38c43716e84afdd37b1438ddfad58",
+      "error": null,
+      "createdAt": 1789716344000
+    },
+    {
+      "id": "0x710b468a64e69062076917ea56e7ae0841f1cd3946cae57a1b5125c5478c928b",
+      "sourceId": "beefapi:order-66e0d9cf-0608-4e81-94f8-09b6ea7629f7:1",
+      "recipient": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+      "amount": "1000000",
+      "status": "completed",
+      "txHash": "0x33702b1b45a37d79df49338cf36a7cf1ad330489a04199cb7b3359cfd6f00e1f",
+      "error": null,
+      "createdAt": 1789716249000
+    }
+  ],
+  "balances": {
+    "id": "demo-partner",
+    "name": "演示推广者",
+    "wallet": "0x2B5AD5c4795c026514f8317c7a215E218DcCD6cF",
+    "autoSettle": false,
+    "available": "0",
+    "pending": "0",
+    "paid": "3000000",
+    "consumed": ""
+  },
+  "priorPayoutHashPreserved": true,
+  "concurrentLauncherRejected": true
+}

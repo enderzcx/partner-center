@@ -202,6 +202,8 @@ async function action(button, task, message) {
 function orderDemoOn() {
   return !!(state && state.orderDemo);
 }
+let createOrderRequestId = null;
+let orderHtml = "";
 function renderOrders() {
   const panel = $("order-panel");
   const demo = orderDemoOn();
@@ -210,18 +212,20 @@ function renderOrders() {
   const orders = Array.isArray(state.orders) ? state.orders : [];
   $("order-count").textContent = orders.length + " 笔";
   if (!orders.length) {
-    $("order-list").innerHTML =
-      '<div class="empty"><strong>还没有测试订单</strong>创建后可确认支付并查看佣金。</div>';
+    const empty = '<div class="empty"><strong>还没有测试订单</strong>创建后可确认支付并查看佣金。</div>';
+    if (orderHtml !== empty) { $("order-list").innerHTML = empty; orderHtml = empty; }
     return;
   }
-  $("order-list").innerHTML = orders
+  const html = orders
     .map((order) => {
       const pending = order.status !== "paid";
       const percent = formatCommissionPercent(order.commissionRate);
-      const canPay = pending || order.error;
+      const payout = state.payouts.find((p) => p.sourceId.startsWith("beefapi:order-" + order.requestId + ":"));
+      const orderError = payout?.status === "completed" ? null : order.error;
+      const canPay = payout?.status !== "completed" && (pending || orderError || (order.commissionUsdc !== "0" && !payout));
       const bound = !!(state.partner.wallet || order.recipient);
       const payDisabled = busy || (pending && !bound);
-      const statusLabel = pending ? "待确认" : "已确认";
+      const statusLabel = pending ? "待确认" : payout?.status === "completed" ? "已到账" : payout?.status === "blocked" ? "待处理" : payout ? "结算中" : order.commissionUsdc === "0" ? "无返佣" : "待结算";
       const rateText = percent == null ? "无法读取" : percent + "%";
       const commissionText = pending
         ? "确认后入账"
@@ -230,11 +234,13 @@ function renderOrders() {
         ? bound
           ? "不会向买家扣款。"
           : "请先到「我的收益」绑定收款钱包。"
-        : order.error
-          ? "佣金尚未记入，可再试一次。"
+        : orderError
+          ? "支付已确认，结算尚未完成，请重试。"
           : order.commissionUsdc === "0"
             ? "当前锁定比例不产生返佣。"
-            : "佣金已记入，随后付到绑定钱包。";
+            : payout?.status === "completed"
+              ? "已到账，可在下方结算记录查看回执。"
+              : "佣金已记入，随后付到本单收款钱包。";
       return (
         '<article class="order-row" data-order="' +
         escapeHTML(order.requestId) +
@@ -251,8 +257,8 @@ function renderOrders() {
         "</strong></span><span>佣金 <strong>" +
         escapeHTML(commissionText) +
         "</strong></span></div>" +
-        (order.error
-          ? '<p class="field-error">' + escapeHTML(order.error) + "</p>"
+        (orderError
+          ? '<p class="field-error">' + escapeHTML(orderError) + "</p>"
           : "") +
         '<p class="subtle">' +
         hint +
@@ -262,12 +268,13 @@ function renderOrders() {
             escapeHTML(order.requestId) +
             '"' +
             (payDisabled ? " disabled" : "") +
-            ">模拟支付成功</button></div>"
+            ">" + (pending ? "模拟支付成功" : "继续结算") + "</button></div>"
           : "") +
         "</article>"
       );
     })
     .join("");
+  if (orderHtml !== html) { $("order-list").innerHTML = html; orderHtml = html; }
 }
 function renderControls() {
   const fixture = state.source === "fixture",
@@ -341,7 +348,7 @@ function render() {
   const warning = [state.sourceError, n.error].filter(Boolean).join("；");
   $("service-warning").hidden = !warning;
   $("service-warning").textContent = warning;
-  $("network-name").textContent = fuji ? "Fuji 测试网" : "测试网络";
+  $("network-name").textContent = fuji ? "Fuji 测试网" : "本地测试网";
   $("network-description").textContent = n.configured
     ? ""
     : "出款网络暂不可用，请检查连接";
@@ -428,7 +435,7 @@ function renderReceipt(id) {
   const n = state.network;
   const fuji = Number(n.chainId) === 43113;
   const confirmed = ["confirmed", "completed"].includes(p.status);
-  const networkName = fuji ? "Fuji 测试网" : "测试网络";
+  const networkName = fuji ? "Fuji 测试网" : "本地测试网";
   let fields =
     field("结算单号", p.id, true) +
     field("业务单号", p.sourceId || "暂无单号", true) +
@@ -483,7 +490,11 @@ $("run").addEventListener("click", () =>
 $("create-order").addEventListener("click", () =>
   action(
     $("create-order"),
-    () => api("/api/demo/orders", {}),
+    async () => {
+      createOrderRequestId ??= crypto.randomUUID();
+      await api("/api/demo/orders", { request_id: createOrderRequestId });
+      createOrderRequestId = null;
+    },
     "测试订单已创建",
   ),
 );

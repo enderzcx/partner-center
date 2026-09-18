@@ -158,7 +158,7 @@ export function runtimeConfig(
   }
   const source = partial.source ?? 'fixture';
   const orderDemo = partial.orderDemo ?? false;
-  if (orderDemo && source !== 'beefapi') {
+  if (orderDemo && (source !== 'beefapi' || (partial.partnerUserId ?? 1) !== 1)) {
     throw new Error('测试订单演示只适用于 beefapi 来源。');
   }
   return {

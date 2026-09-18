@@ -734,6 +734,19 @@ test("beefapi source talks to settlement-test order endpoints", async () => {
   });
   expect(reserved.amount).toBe(1_000_000n);
   expect(reserved.requestId).toBe(orderReservationRequestId(created.requestId));
+  reserves[0]!.status = "completed";
+  reserves[0]!.transaction_hash = "0x" + "a".repeat(64);
+  const completedReplay = await source.reserveFrozen!({
+    requestId: orderReservationRequestId(created.requestId), recipient: RECIPIENT,
+    amountUsdc: paid.commissionUsdc,
+  });
+  expect(completedReplay.sourceId).toBe(reserved.sourceId);
+  expect(reserves).toHaveLength(1);
+  delete reserves[0]!.transaction_hash;
+  await expect(source.reserveFrozen!({
+    requestId: orderReservationRequestId(created.requestId), recipient: RECIPIENT,
+    amountUsdc: paid.commissionUsdc,
+  })).rejects.toThrow();
   const listed = await source.listOrders!();
   expect(listed).toHaveLength(1);
   expect(listed[0]?.status).toBe("paid");
@@ -751,4 +764,18 @@ test("public UI copy and syntax", () => {
   expect(js).toContain("不会向买家扣款。");
   expect(js).not.toContain("Stripe");
   expect(js).not.toContain("synthetic");
+});
+
+
+test("create retry preserves caller request ID rather than making a second order", async () => {
+  const source = mockOrderSource();
+  const {app} = harness({orderDemo:true, source:"beefapi"}, source);
+  const sid = await open(app);
+  const input = {request_id:"retry-create-order-001", payment_amount_minor:"1000"};
+  const first = await req(app,"/api/demo/orders",{sid,method:"POST",body:JSON.stringify(input)});
+  const second = await req(app,"/api/demo/orders",{sid,method:"POST",body:JSON.stringify(input)});
+  expect(first.status).toBe(200); expect(second.status).toBe(200);
+  expect((await first.json()).order.requestId).toBe(input.request_id);
+  expect((await second.json()).order.requestId).toBe(input.request_id);
+  expect(await source.listOrders!()).toHaveLength(1);
 });
