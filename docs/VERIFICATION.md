@@ -46,3 +46,12 @@ Grok 修复后主会话重跑 38 项全部通过。主会话再修复大额聚�
 ## 交付与清理
 
 Grok 临时工作树已移除，原作者分支保留作为本地审阅引用，任务回执归档在 `.local/grok-receipts/`。独立应用工作目录和 BeefAPI 适配工作树保留为交付物。实际 BeefAPI fixture 已停止；本地链和独立应用的 fixture 预览继续运行，演示参数为成熟期0、扫描1秒。全部提交仅在本地，无远端推送。
+
+## 2026-09-18 返佣比例补齐
+
+- 独立应用提交 `880e365`；BeefAPI 测试适配提交 `f3938d3bd6`。当前比例复用 global affiliate resolver，默认/个人覆盖/明确零值均保留，不重算冻结金额。
+- 主会话复核 `bun run verify`：46 pass / 0 fail / 382 assertions；TypeScript、浏览器脚本语法通过。Go `go test ./model ./controller -run '^TestSettlement' -count=1` 和 repo governance 通过。
+- 真实本地 Go HTTP fixture 返回 `commission_rate: "0.1"`, `commission_rate_source: "default"`。该 fixture 使用临时测试库，不代表线上政策或余额。
+- 演示页面 1440/390/320px 已验收，比例显示 10% 并标注演示规则，无横向溢出。截图在 `.local/commission-*.png`。
+- Fuji 只读预检：chain 43113，出款公开地址 `0x28172e0d973fFf24651B6Ed4cA6d1007bc168C94`，用户指定收款地址 `0x831C5C93a221D8508ad4808C2A64D58B15f77c85`。测试 AVAX/USDC 均为零；Settlement 部署估算 646680 gas（仅当次估值）。无签名广播、部署或转账。私钥未打印、复制、提交或交给 Grok。公开预检记录在 `.local/fuji-preflight.json`。
+- Go → 独立服务 `/api/state` → 浏览器联调通过：`source=beefapi`, `scope=global`, `rate=0.1`, `rateSource=default`；320px 商家和我的收益视图均显示 10%。联调服务及临时 Go fixture 已停止，演示预览恢复到 4311。
