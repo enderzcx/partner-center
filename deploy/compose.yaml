@@ -1,0 +1,28 @@
+name: partner-demo
+services:
+  demo:
+    image: ${PARTNER_IMAGE:?Set immutable release image tag}
+    container_name: partner-demo
+    network_mode: host
+    restart: unless-stopped
+    init: true
+    read_only: true
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 128
+    stop_grace_period: 30s
+    environment:
+      SETTLEMENT_PUBLIC_ORIGIN: https://partner.bflabs.app
+      PARTNER_DATA_DIR: /data
+      PARTNER_SECRET_FILE: /run/secrets/partner-demo.json
+    volumes:
+      - ./data:/data
+      - ./secrets/partner-demo.json:/run/secrets/partner-demo.json:ro
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}

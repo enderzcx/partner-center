@@ -1,0 +1,10 @@
+.git
+.local
+.env
+.env.*
+node_modules
+.grok-companion
+coverage
+*.pem
+*.key
+**/secrets*
