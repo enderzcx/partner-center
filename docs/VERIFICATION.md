@@ -109,3 +109,14 @@ Ender 明确授权后，真实部署 Settlement、充值 1 测试 USDC，使用�
 - 已完成新订单重放没有新增记录或扣款；推广者重新登录后显示累计到账2.00、新回执存在，商家和订单面板隐藏。证据 `evidence/public-order-fuji-2026-09-18.json`。
 - 第一次浏览器点击遇到滚动过程指针被article拦截；读回仍pending，重新定位可见按钮后完成一次确认。未以点击调用成功替代订单/链上证据。
 - 本轮仅一笔测试币付款，无生产余额或真实支付渠道收款；应用代码及部署镜像未变。旧部署验证脚本的固定累计1USDC断言仅适用于发布时快照，不用于本轮2USDC账本。
+
+## 2026-09-18 x402 集成验收（公网尚未升级）
+
+- 本轮合同见 `X402.md`。Grok 后端作者 `ada87d0`（任务20260918-174331-delegate-7c739179），整合 `3dfe1a7`；前端作者 `226cfce`（任务20260918-174331-delegate-ff2b36b7），整合 `915978f`。主会话修正与独立验收提交 `b5b9931`。
+- 主会话重跑 `bun run typecheck` 通过；`bun test` 107 pass / 0 fail / 829 assertions。包括真实钱包RPC签名、迟到401不登出新会话、已收款后原签名过期仍恢复记账、关闭开关不能模拟支付已有x402订单。
+- 没有采纳前端作者“eth_signTypedData_v4应省略EIP712Domain”的判断；Ganache钱包RPC实际报 `EIP712Domain definition missing`，已补完整定义并用实际签名恢复地址验证。
+- `bun scripts/verify-x402-local.ts` 完整链路通过：官方SDK2.26.0解析402/签名/读取PAYMENT-RESPONSE，本地真实EVM执行EIP3009授权转账，专用Go来源订单锁10%并入账，worker自动支付1，来源pending归零；付款人100→90、合约0→9、收款人0→1。重复请求只调用一次facilitator，模拟付款接口403。
+- 本地EVM故意使用43113链ID和Fuji代币地址上的测试代码以检验签名域，RPC始终为127.0.0.1，账户随机生成且仅在本地注资。`evidence/x402-local-e2e.json` 中的交易不属于真实Fuji，不可作为公网付款证据。
+- Ego TaskSpace243：从浏览器创建订单、触发402、注入仅用于本地的EIP1193桥接，由Ganache实际签名，页面提交付款，最终收到1测试代币佣金。没有绕过产品CSP。Ganache闲置后区块时间停止导致首轮gas模拟拒绝validAfter；推进本地区块后原授权重试成功，测试facilitator已增加推进本地区块时间，产品代码未放宽时间校验。
+- 1440/390/320px DOM布局无横向溢出，付款按钮文本完整，收款与出款回执分开显示；证据 `evidence/x402-local-browser.json`。本轮一次截图调用仍出现Page.captureScreenshot超时，没有截图验收证据。
+- 独立G3安全/结构审查任务 `20260918-181229-review-63be7539` 针对b5b9931 vs4ea7442，尚在运行。公网仍为旧public-v2；尚未执行新的真实Fuji x402付款。付款方选择已向Ender询问，未收到答复前不使用原出款私钥代签买家付款。

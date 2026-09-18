@@ -30,6 +30,8 @@ try {
     const a=b.paymentPayload.payload.authorization;
     if(url.endsWith('/verify'))return Response.json({isValid:true,payer:a.from});
     assert.ok(url.endsWith('/settle'));settles++;
+    // Ganache instamine otherwise leaves its latest timestamp stale while UI is idle.
+    await chain.server.provider.request({method:'evm_mine',params:[]});
     const sig=parseSignature(b.paymentPayload.payload.signature);
     const hash=await chain.wallet.writeContract({address:chain.token,abi:tokenAbi,functionName:'transferWithAuthorization',args:[a.from,a.to,BigInt(a.value),BigInt(a.validAfter),BigInt(a.validBefore),a.nonce,Number(sig.v??BigInt(27+(sig.yParity??0))),sig.r,sig.s]});
     const receipt=await chain.client.waitForTransactionReceipt({hash});assert.equal(receipt.status,'success');

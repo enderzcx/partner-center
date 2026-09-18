@@ -183,7 +183,6 @@ export function createX402Service(opts: {
 
   const confirmChain = async (
     row: X402OrderRecord,
-    payload: X402PaymentPayload,
     candidate: Hex | null,
   ): Promise<Hex> => {
     const chainId = await opts.chain.getChainId();
@@ -246,7 +245,7 @@ export function createX402Service(opts: {
       throw new ServiceError(502, "付款未完成。");
     }
     const hint = parseTxHash(settled.transaction);
-    return confirmChain(row, payload, hint);
+    return confirmChain(row, hint);
   };
 
   return {

@@ -1105,3 +1105,37 @@ test('turning x402 off cannot synthetically pay an existing x402 order', async (
   expect((await req(app,`/api/demo/orders/${order.requestId}/pay`,{sid,method:'POST',body:'{}'})).status).toBe(403);
   expect(h.source.payCalls).toBe(0);
 });
+
+test('replaying legacy order creation after enable preserves its simulated payment history', async () => {
+  const h=harness({x402Enabled:false});const sid=await open(h.app);const order=await createPending(h.app,sid,h.store);
+  expect((await req(h.app,`/api/demo/orders/${order.requestId}/pay`,{sid,method:'POST',body:'{}'})).status).toBe(200);
+  const config=runtimeConfig({...h.config,x402Enabled:true});
+  const app=createApp({store:h.store,worker:h.worker,chain:h.chain,source:h.source,config,x402Facilitator:h.facilitator,x402Chain:h.x402Chain});
+  const replay=await req(app,'/api/demo/orders',{sid,method:'POST',body:JSON.stringify({request_id:order.requestId})});
+  expect(replay.status).toBe(200);
+  expect((await replay.json()).order.payment).toBeUndefined();
+  expect(h.store.getX402Order(order.requestId)).toBeNull();
+});
+
+test('pending finality after authorization expiry remains recoverable without another settle', async () => {
+  let now=Date.now();const h=harness({},undefined,{now:()=>now});h.x402Chain.receipts.set(GOOD_TX,{ok:false,reason:'pending'});
+  const sid=await open(h.app);const order=await createPending(h.app,sid,h.store);
+  const signed=await signPayload({origin:h.app.origin,requestId:order.requestId,account:privateKeyToAccount(generatePrivateKey())});
+  const path=`/api/x402/orders/${order.requestId}/pay`;
+  expect((await req(h.app,path,{sid,method:'POST',body:'{}',paymentSignature:signed.header})).status).toBe(502);
+  now+=600000;
+  expect((await req(h.app,path,{sid,method:'POST',body:'{}'})).status).toBe(502);
+  expect(h.store.getX402Order(order.requestId)?.status).toBe('submitted');
+  h.x402Chain.receipts.set(GOOD_TX,{ok:true,txHash:GOOD_TX,blockNumber:1001n});h.x402Chain.found=GOOD_TX;
+  expect((await req(h.app,path,{sid,method:'POST',body:'{}'})).status).toBe(200);
+  expect(h.facilitator.settleCalls).toBe(1);
+});
+
+test('legacy paid commission can finish reservation after x402 enable', async () => {
+  const h=harness({x402Enabled:false});const sid=await open(h.app);const order=await createPending(h.app,sid,h.store);
+  await h.source.payOrder!(order.requestId);
+  const config=runtimeConfig({...h.config,x402Enabled:true});
+  const app=createApp({store:h.store,worker:h.worker,chain:h.chain,source:h.source,config,x402Facilitator:h.facilitator,x402Chain:h.x402Chain});
+  expect((await req(app,`/api/demo/orders/${order.requestId}/pay`,{sid,method:'POST',body:'{}'})).status).toBe(200);
+  expect(h.source.reserveCalls).toBe(1);expect(h.facilitator.settleCalls).toBe(0);
+});

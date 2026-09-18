@@ -1,0 +1,32 @@
+{
+  "network": "isolated local EVM, not Fuji",
+  "result": "PASS",
+  "wallet": "Injected test EIP1193 bridge, Ganache real signature, production CSP unchanged",
+  "flow": "browser create, 402, wallet EIP712 signature, real local token transfer, source award, automatic1USDC payout, incoming and outgoing receipts",
+  "viewports": [
+    {
+      "width": 1440,
+      "scrollWidth": 1440,
+      "payLabel": "支付 10 测试 USDC",
+      "payButtonWidth": 146.890625,
+      "payButtonScrollWidth": 145,
+      "paid": "2.00"
+    },
+    {
+      "width": 390,
+      "scrollWidth": 390,
+      "payLabel": "支付 10 测试 USDC",
+      "payButtonWidth": 146.890625,
+      "payButtonScrollWidth": 145,
+      "paid": "2.00"
+    },
+    {
+      "width": 320,
+      "scrollWidth": 320,
+      "payLabel": "支付 10 测试 USDC",
+      "payButtonWidth": 146.890625,
+      "payButtonScrollWidth": 145,
+      "paid": "2.00"
+    }
+  ]
+}
