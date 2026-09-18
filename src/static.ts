@@ -28,10 +28,10 @@ export function staticFileFor(path: string): StaticFile | null {
   if (path === '/global-icon.svg' || path === '/favicon.ico') {
     return { file: path.slice(1), type: path.endsWith('.svg') ? types.svg! : types.ico! };
   }
-  if (path === '/licenses/new-api.txt') {
-    return { file: 'licenses/new-api.txt', type: 'text/plain; charset=utf-8' };
+  if (['/licenses/new-api.txt', '/fonts/geist-mono-OFL.txt', '/fonts/schibsted-OFL.txt'].includes(path)) {
+    return { file: path.slice(1), type: 'text/plain; charset=utf-8' };
   }
-  const match = /^\/(?:assets|fonts|images)\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9][A-Za-z0-9._-]*\.([a-z0-9]+)$/.exec(path);
+  const match = /^\/(?:assets|fonts|images|global|brand)\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9][A-Za-z0-9._-]*\.([a-z0-9]+)$/.exec(path);
   if (!match || !types[match[1]!]) return null;
   return { file: path.slice(1), type: types[match[1]!]! };
 }

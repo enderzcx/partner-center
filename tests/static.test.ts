@@ -15,6 +15,8 @@ test('built assets are constrained to public types and safe relative paths', () 
   expect(staticFileFor('/assets/index-AbC12.css')?.type).toContain('text/css');
   expect(staticFileFor('/fonts/schibsted-latin.woff2')?.type).toBe('font/woff2');
   expect(staticFileFor('/images/partner/receipt.webp')?.type).toBe('image/webp');
+  expect(staticFileFor('/global/console-preview.png')?.type).toBe('image/png');
+  expect(staticFileFor('/fonts/schibsted-OFL.txt')?.type).toContain('text/plain');
   for (const path of ['/assets/../secret.js', '/assets/%2e%2e/secret.js', '/assets/%2fsecret.js', '/assets/index.js.map', '/assets/.env', '/src/server.ts', '/assets/source.ts', '/assets/dir\\secret.js']) {
     expect(staticFileFor(path)).toBeNull();
   }
