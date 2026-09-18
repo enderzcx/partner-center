@@ -45,6 +45,68 @@ function precise(value) {
     return "暂无数据";
   }
 }
+function parseCommissionRate(value) {
+  return typeof value === "string" &&
+    /^(0(\.[0-9]{1,18})?|1(\.0{1,18})?)$/.test(value)
+    ? value
+    : null;
+}
+function formatCommissionPercent(rate) {
+  if (parseCommissionRate(rate) == null) return null;
+  const [intPart, frac = ""] = rate.split(".");
+  if (intPart === "1") return "100";
+  const padded = frac.padEnd(2, "0");
+  const whole = padded.slice(0, 2).replace(/^0+(?=\d)/, "") || "0";
+  const rest = padded.slice(2).replace(/0+$/, "");
+  return rest ? whole + "." + rest : whole;
+}
+function isZeroCommissionRate(rate) {
+  return /^0(\.0+)?$/.test(rate);
+}
+function renderRate() {
+  const commission = state && state.commission;
+  const rate = commission ? parseCommissionRate(commission.rate) : null;
+  const source =
+    commission && typeof commission.rateSource === "string"
+      ? commission.rateSource
+      : "unavailable";
+  const percent = rate != null ? formatCommissionPercent(rate) : null;
+  const scopeEl = $("rate-scope");
+  const exampleEl = $("rate-example");
+  let badge = "";
+  if (rate != null && source === "demo") badge = "演示规则";
+  else if (rate != null && source === "override") badge = "专属比例";
+  else if (rate != null && (source === "default" || source === "disabled"))
+    badge = "当前比例";
+  scopeEl.hidden = !badge;
+  scopeEl.textContent = badge;
+  if (rate == null || percent == null || source === "unavailable") {
+    $("rate-value").textContent = "无法读取";
+    $("rate-rule").textContent = "当前比例暂无法读取。";
+    $("rate-limit").textContent = "已有付款金额不变。";
+    exampleEl.hidden = true;
+    exampleEl.textContent = "";
+    return;
+  }
+  $("rate-value").textContent = percent + "%";
+  if (isZeroCommissionRate(rate)) {
+    $("rate-rule").textContent = "当前不产生新返佣。";
+    $("rate-limit").textContent = "已生成的付款会继续处理。";
+    exampleEl.hidden = true;
+    exampleEl.textContent = "";
+    return;
+  }
+  $("rate-rule").textContent =
+    "按实际支付金额计算。比例在下单时确定，之后调整不影响已有订单。";
+  $("rate-limit").textContent = "赠送、试用与收益转入不计返佣。";
+  if (percent === "10") {
+    exampleEl.hidden = false;
+    exampleEl.textContent = "示例：实付 100 USD，返佣 10 USD";
+  } else {
+    exampleEl.hidden = true;
+    exampleEl.textContent = "";
+  }
+}
 function micro(input) {
   const s = input.trim();
   if (!/^\d+(\.\d{1,6})?$/.test(s))
@@ -199,6 +261,7 @@ function render() {
   $("network-description").hidden = n.configured;
   for (const key of ["available", "pending", "paid"])
     $(key).textContent = precise(state.partner[key]);
+  renderRate();
   $("token-balance").textContent = precise(state.wallet?.token);
   $("gas-balance").textContent = units(state.wallet?.gas, 18, 4);
   $("recipient").textContent = state.partner.wallet || "尚未绑定收款钱包";

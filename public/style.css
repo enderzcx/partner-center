@@ -393,6 +393,53 @@ p {
   text-wrap: pretty;
 }
 
+.rate-block {
+  min-width: 0;
+  margin: 0 0 20px;
+  padding: 22px 24px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+
+.rate-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.rate-head #rate-label {
+  color: var(--soft);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.rate-block strong {
+  display: block;
+  margin: 12px 0 8px;
+  overflow-wrap: anywhere;
+  font: 650 32px / 1 var(--mono);
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.rate-block .subtle {
+  max-width: 42em;
+}
+
+.rate-block .subtle + .subtle {
+  margin-top: 4px;
+}
+
+.rate-example {
+  margin-top: 10px;
+  color: var(--soft);
+  font-size: var(--text-xs);
+  text-wrap: pretty;
+}
+
 .source-line {
   display: flex;
   flex-wrap: wrap;
@@ -828,6 +875,14 @@ dialog h2 {
   .metric strong {
     font-size: 24px;
   }
+
+  .rate-block {
+    padding: 18px 16px;
+  }
+
+  .rate-block strong {
+    font-size: 28px;
+  }
 }
 
 @media (max-width: 760px) {
@@ -957,6 +1012,14 @@ dialog h2 {
 
   .metric strong {
     font-size: 22px;
+  }
+
+  .rate-block {
+    padding: 16px;
+  }
+
+  .rate-block strong {
+    font-size: 26px;
   }
 
   .page-heading .button.quiet {

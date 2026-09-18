@@ -122,6 +122,16 @@
               <p>已完成的付款</p>
             </div>
           </div>
+          <section class="rate-block" aria-labelledby="rate-label">
+            <div class="rate-head">
+              <span id="rate-label">返佣比例</span>
+              <span id="rate-scope" class="badge" hidden></span>
+            </div>
+            <strong id="rate-value">···</strong>
+            <p id="rate-rule" class="subtle"></p>
+            <p id="rate-limit" class="subtle"></p>
+            <p id="rate-example" class="rate-example" hidden></p>
+          </section>
           <p id="source-line" class="source-line">
             <strong id="source-name">读取中</strong>
             <span id="source-description">正在读取</span>
@@ -156,7 +166,9 @@
             </div>
             <details id="fixture-controls" class="tools" hidden>
               <summary>演示工具</summary>
-              <label for="commission-amount">金额 <small>USDC</small></label>
+              <label for="commission-amount"
+                >已计算的佣金 <small>USDC</small></label
+              >
               <form id="commission-form" class="input-action">
                 <input
                   id="commission-amount"

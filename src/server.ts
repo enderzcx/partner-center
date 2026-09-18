@@ -25,7 +25,7 @@ import {
 } from "./config.ts";
 import { acquireProcessLock } from "./lock.ts";
 import { parseAmount } from "./money.ts";
-import { createSource } from "./source.ts";
+import { commissionFromBalances, createSource } from "./source.ts";
 import { createStore, type Store } from "./store.ts";
 import {
   type AppState,
@@ -234,6 +234,7 @@ export function createApp(opts: {
       payouts: opts.store.publicPayouts(),
       source: opts.source.kind,
       minAmount: opts.config.minAmount.toString(),
+      commission: commissionFromBalances(opts.source.kind, sourceBalances),
       ...(sourceError ? { sourceError } : {}),
     };
   };

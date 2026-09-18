@@ -33,11 +33,29 @@ export type SourceItem = {
   token?: Address;
 };
 
+export type CommissionScope = 'demo' | 'global';
+export type CommissionRateSource =
+  | 'demo'
+  | 'default'
+  | 'override'
+  | 'disabled'
+  | 'unavailable';
+
+export type CommissionState = {
+  rate: string | null;
+  scope: CommissionScope;
+  rateSource: CommissionRateSource;
+  basis: 'actual_payment';
+  lockedAt: 'order_creation';
+};
+
 export type SourceBalances = {
   available: string;
   pending: string;
   paid: string;
   consumed: string;
+  commissionRate?: string;
+  commissionRateSource?: string;
 };
 
 export interface Source {
@@ -109,6 +127,7 @@ export type AppState = {
   payouts: PublicPayout[];
   source: SourceKind;
   minAmount: string;
+  commission: CommissionState;
   sourceError?: string;
 };
 

@@ -5,11 +5,93 @@ import { parseAmount } from "./money.ts";
 import type { Store } from "./store.ts";
 import {
   type Address,
+  type CommissionRateSource,
+  type CommissionState,
   type PayoutRecord,
   type Source,
+  type SourceBalances,
   type SourceItem,
+  type SourceKind,
   ServiceError,
 } from "./types.ts";
+
+export const COMMISSION_BASIS = "actual_payment" as const;
+export const COMMISSION_LOCKED_AT = "order_creation" as const;
+export const FIXTURE_COMMISSION_RATE = "0.1";
+
+const RATE_RE = /^(0(\.[0-9]{1,18})?|1(\.0{1,18})?)$/;
+const API_RATE_SOURCES = new Set(["default", "override", "disabled"]);
+const DISPLAY_RATE_SOURCES = new Set([
+  "demo",
+  "default",
+  "override",
+  "disabled",
+]);
+
+export function parseCommissionRate(value: unknown): string | null {
+  if (typeof value !== "string" || !RATE_RE.test(value)) return null;
+  return value;
+}
+
+export function parseCommissionRateSource(
+  value: unknown,
+  allowed: ReadonlySet<string> = DISPLAY_RATE_SOURCES,
+): Exclude<CommissionRateSource, "unavailable"> | null {
+  if (typeof value !== "string" || !allowed.has(value)) return null;
+  return value as Exclude<CommissionRateSource, "unavailable">;
+}
+
+export function formatCommissionPercent(rate: string): string | null {
+  if (parseCommissionRate(rate) == null) return null;
+  const [intPart, frac = ""] = rate.split(".");
+  if (intPart === "1") return "100";
+  const padded = frac.padEnd(2, "0");
+  const whole = padded.slice(0, 2).replace(/^0+(?=\d)/, "") || "0";
+  const rest = padded.slice(2).replace(/0+$/, "");
+  return rest ? `${whole}.${rest}` : whole;
+}
+
+export function unavailableCommission(
+  scope: CommissionState["scope"],
+): CommissionState {
+  return {
+    rate: null,
+    scope,
+    rateSource: "unavailable",
+    basis: COMMISSION_BASIS,
+    lockedAt: COMMISSION_LOCKED_AT,
+  };
+}
+
+export function commissionFromBalances(
+  kind: SourceKind,
+  balances: SourceBalances | null,
+): CommissionState {
+  const scope = kind === "fixture" ? "demo" : "global";
+  if (!balances) return unavailableCommission(scope);
+  const rate = parseCommissionRate(balances.commissionRate);
+  const rateSource = parseCommissionRateSource(balances.commissionRateSource);
+  if (rate == null || rateSource == null) return unavailableCommission(scope);
+  if (kind === "fixture") {
+    return rateSource === "demo"
+      ? {
+          rate,
+          scope: "demo",
+          rateSource: "demo",
+          basis: COMMISSION_BASIS,
+          lockedAt: COMMISSION_LOCKED_AT,
+        }
+      : unavailableCommission("demo");
+  }
+  if (rateSource === "demo") return unavailableCommission("global");
+  return {
+    rate,
+    scope: "global",
+    rateSource,
+    basis: COMMISSION_BASIS,
+    lockedAt: COMMISSION_LOCKED_AT,
+  };
+}
 
 type Envelope = {
   success?: unknown;
@@ -64,6 +146,8 @@ export function createFixtureSource(store: Store): Source {
         pending: partner.pending.toString(),
         paid: partner.paid.toString(),
         consumed: partner.consumed.toString(),
+        commissionRate: FIXTURE_COMMISSION_RATE,
+        commissionRateSource: "demo",
       };
     },
     lastError() {
@@ -272,7 +356,22 @@ export function createBeefApiSource(
           return null;
         }
         if (available === "" || pending === "" || paid === "") return null;
-        return { available, pending, paid, consumed: "" };
+        const parsed: SourceBalances = {
+          available,
+          pending,
+          paid,
+          consumed: "",
+        };
+        const rate = parseCommissionRate(row.commission_rate);
+        const rateSource = parseCommissionRateSource(
+          row.commission_rate_source,
+          API_RATE_SOURCES,
+        );
+        if (rate != null && rateSource != null) {
+          parsed.commissionRate = rate;
+          parsed.commissionRateSource = rateSource;
+        }
+        return parsed;
       } catch {
         return null;
       }
