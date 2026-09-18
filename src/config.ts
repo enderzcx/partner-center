@@ -19,6 +19,10 @@ export const DEFAULT_TICK_MS = 30_000;
 export const DEFAULT_MATURITY_MS = 60_000;
 export const CHALLENGE_TTL_MS = 5 * 60_000;
 export const BODY_LIMIT = 16 * 1024;
+export const DEFAULT_X402_FACILITATOR_URL = 'https://facilitator.payai.network';
+export const X402_NETWORK = 'eip155:43113' as const;
+export const X402_MAX_TIMEOUT_SECONDS = 300;
+export const X402_HEADER_LIMIT = 8 * 1024;
 
 export type ChainConfig = {
   rpcUrl: string;
@@ -51,6 +55,8 @@ export type RuntimeConfig = {
   publicOrigin: string | null;
   merchantPasswordHash: string;
   promoterPasswordHash: string;
+  x402Enabled: boolean;
+  x402FacilitatorUrl: string;
 };
 
 const LOOPBACK = new Set(['127.0.0.1', 'localhost', '::1']);
@@ -174,6 +180,31 @@ export function assertSupportedPasswordHash(value: unknown, label: string): stri
   return value;
 }
 
+export function parseX402FacilitatorUrl(value: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error('SETTLEMENT_X402_FACILITATOR_URL 必须是不含路径的 HTTPS 地址。');
+  }
+  if (url.protocol !== 'https:') {
+    throw new Error('SETTLEMENT_X402_FACILITATOR_URL 必须是不含路径的 HTTPS 地址。');
+  }
+  if (url.username || url.password) {
+    throw new Error('SETTLEMENT_X402_FACILITATOR_URL 必须是不含路径的 HTTPS 地址。');
+  }
+  if (url.search || url.hash) {
+    throw new Error('SETTLEMENT_X402_FACILITATOR_URL 必须是不含路径的 HTTPS 地址。');
+  }
+  if (url.pathname !== '/' && url.pathname !== '') {
+    throw new Error('SETTLEMENT_X402_FACILITATOR_URL 必须是不含路径的 HTTPS 地址。');
+  }
+  if (!url.hostname) {
+    throw new Error('SETTLEMENT_X402_FACILITATOR_URL 必须是不含路径的 HTTPS 地址。');
+  }
+  return url.origin;
+}
+
 export function parsePublicOrigin(value: string): string {
   let url: URL;
   try {
@@ -213,6 +244,14 @@ export function runtimeConfig(
   const partnerUserId = partial.partnerUserId ?? 1;
   const authEnabled = partial.authEnabled ?? false;
   const publicOrigin = partial.publicOrigin ?? null;
+  const x402Enabled = partial.x402Enabled ?? false;
+  const x402FacilitatorUrl = x402Enabled
+    ? parseX402FacilitatorUrl(
+        partial.x402FacilitatorUrl && partial.x402FacilitatorUrl !== ''
+          ? partial.x402FacilitatorUrl
+          : DEFAULT_X402_FACILITATOR_URL,
+      )
+    : DEFAULT_X402_FACILITATOR_URL;
   let merchantPasswordHash = partial.merchantPasswordHash ?? '';
   let promoterPasswordHash = partial.promoterPasswordHash ?? '';
   if (orderDemo && (source !== 'beefapi' || partnerUserId !== 1)) {
@@ -243,6 +282,11 @@ export function runtimeConfig(
     }
     if (source !== 'beefapi' || !orderDemo) {
       throw new Error('公开来源需要订单演示。');
+    }
+  }
+  if (x402Enabled) {
+    if (chainId !== 43113 || source !== 'beefapi' || !orderDemo) {
+      throw new Error('x402 测试付款只适用于 Fuji 订单演示。');
     }
   }
   return {
@@ -276,6 +320,8 @@ export function runtimeConfig(
     publicOrigin,
     merchantPasswordHash,
     promoterPasswordHash,
+    x402Enabled,
+    x402FacilitatorUrl,
   };
 }
 
@@ -386,6 +432,8 @@ export function loadConfig(opts?: {
         : null,
     merchantPasswordHash: env.SETTLEMENT_MERCHANT_PASSWORD_HASH ?? '',
     promoterPasswordHash: env.SETTLEMENT_PROMOTER_PASSWORD_HASH ?? '',
+    x402Enabled: flagEnv(env.SETTLEMENT_X402_ENABLED, 'SETTLEMENT_X402_ENABLED'),
+    x402FacilitatorUrl: env.SETTLEMENT_X402_FACILITATOR_URL ?? DEFAULT_X402_FACILITATOR_URL,
   });
 
   if (cfg.source === 'beefapi') {

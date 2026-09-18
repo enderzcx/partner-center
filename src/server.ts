@@ -27,6 +27,8 @@ import {
   AUTH_SESSION_TTL_MS,
   assertLoopbackBind,
   BODY_LIMIT,
+  CIRCLE_FUJI_USDC,
+  X402_NETWORK,
   demoWalletAddress,
   loadConfig,
   networkMeta,
@@ -57,6 +59,15 @@ import {
   sanitizeError,
 } from "./types.ts";
 import { createWorker, type SettlementWorker } from "./worker.ts";
+import {
+  createHttpFacilitator,
+  createRpcX402Chain,
+  createX402Service,
+  headerGet,
+  PAYMENT_SIGNATURE_HEADER,
+  type X402Chain,
+  type X402Facilitator,
+} from "./x402/index.ts";
 
 export type { RuntimeConfig, Store, SettlementWorker, Chain, Source, AppState };
 export {
@@ -189,6 +200,8 @@ export function createApp(opts: {
   config: RuntimeConfig;
   publicDir?: string;
   now?: () => number;
+  x402Facilitator?: X402Facilitator;
+  x402Chain?: X402Chain;
 }): SettlementApp {
   assertLoopbackBind(opts.config.host);
   const origin = originOf(opts.config.host, opts.config.port);
@@ -294,11 +307,13 @@ export function createApp(opts: {
       throw new ServiceError(403, "当前账号不能执行该操作。");
     }
     const payMatch = /^\/api\/demo\/orders\/[^/]+\/pay$/.exec(pathname);
+    const x402PayMatch = /^\/api\/x402\/orders\/[^/]+\/pay$/.exec(pathname);
     const merchantPath =
       pathname === "/api/demo/orders" ||
       pathname === "/api/admin/pause" ||
       pathname === "/api/admin/run" ||
-      !!payMatch;
+      !!payMatch ||
+      !!x402PayMatch;
     const promoterPath =
       pathname === "/api/partner/wallet/challenge" ||
       pathname === "/api/partner/wallet/verify";
@@ -316,22 +331,88 @@ export function createApp(opts: {
     }
   };
 
+  const awardDemoOrder = async (requestId: string): Promise<PublicOrder> => {
+    requireOrderDemo();
+    if (!opts.source.payOrder) {
+      throw new ServiceError(502, "来源服务暂时不可用。");
+    }
+    const partner = opts.store.getPartner();
+    const existing = opts.store.getOrderSnapshot(requestId);
+    if (!existing && !partner.wallet) {
+      throw new ServiceError(400, "请先绑定收款钱包，再确认测试订单。");
+    }
+    const recipient = opts.store.snapshotOrderRecipient(
+      requestId,
+      existing?.recipient ?? partner.wallet,
+      orderReservationRequestId(requestId),
+    );
+    try {
+      const paid = await opts.source.payOrder(requestId);
+      if (paid.commissionUsdc === "0") {
+        opts.store.setOrderError(requestId, null);
+        return toPublicOrder(paid, { recipient, error: null });
+      }
+      if (!opts.source.reserveFrozen) {
+        throw new ServiceError(502, "来源服务暂时不可用。");
+      }
+      await opts.source.reserveFrozen({
+        requestId: orderReservationRequestId(requestId),
+        recipient,
+        amountUsdc: paid.commissionUsdc,
+      });
+      opts.store.setOrderError(requestId, null);
+      return toPublicOrder(paid, { recipient, error: null });
+    } catch (err) {
+      const message = sanitizeError(err);
+      try {
+        opts.store.setOrderError(requestId, message);
+      } catch {
+        /* snapshot must already exist */
+      }
+      throw err instanceof ServiceError ? err : new ServiceError(502, message);
+    }
+  };
+
+  const x402Enabled = opts.config.x402Enabled === true;
+  const x402Service = x402Enabled
+    ? createX402Service({
+        store: opts.store,
+        source: opts.source,
+        config: opts.config,
+        facilitator:
+          opts.x402Facilitator ??
+          createHttpFacilitator(opts.config.x402FacilitatorUrl),
+        chain:
+          opts.x402Chain ??
+          createRpcX402Chain({
+            rpcUrl: opts.config.chain.rpcUrl,
+            chainId: opts.config.chain.chainId,
+          }),
+        now,
+        originOf: (host) => canonicalOrigin(host, publicOrigin),
+        awardOrder: awardDemoOrder,
+      })
+    : null;
+
   const toPublicOrder = (
     order: SourceOrder,
     snapshot?: {
       recipient: string;
       error: string | null;
     } | null,
-  ): PublicOrder => ({
-    requestId: order.requestId,
-    tradeNo: order.tradeNo,
-    paymentAmountMinor: order.paymentAmountMinor,
-    commissionRate: order.commissionRate,
-    commissionUsdc: order.commissionUsdc,
-    status: order.status,
-    recipient: snapshot?.recipient ?? "",
-    error: snapshot?.error ?? null,
-  });
+  ): PublicOrder => {
+    const pub: PublicOrder = {
+      requestId: order.requestId,
+      tradeNo: order.tradeNo,
+      paymentAmountMinor: order.paymentAmountMinor,
+      commissionRate: order.commissionRate,
+      commissionUsdc: order.commissionUsdc,
+      status: order.status,
+      recipient: snapshot?.recipient ?? "",
+      error: snapshot?.error ?? null,
+    };
+    return x402Service ? x402Service.attach(pub) : pub;
+  };
 
   const loadPublicOrders = async (): Promise<PublicOrder[]> => {
     if (!opts.source.listOrders) {
@@ -358,55 +439,17 @@ export function createApp(opts: {
       requestId,
       paymentAmountMinor,
     });
+    if (x402Service) x402Service.persistCreatedOrder(order);
     return toPublicOrder(order, opts.store.getOrderSnapshot(order.requestId));
   };
 
   const payDemoOrder = async (requestIdRaw: string): Promise<PublicOrder> => {
     requireOrderDemo();
-    if (!opts.source.payOrder) {
-      throw new ServiceError(502, "来源服务暂时不可用。");
+    if (x402Enabled) {
+      throw new ServiceError(403, "请完成订单付款。");
     }
     const requestId = parseOrderRequestId(requestIdRaw);
-    return lockOrder(requestId, async () => {
-      const partner = opts.store.getPartner();
-      const existing = opts.store.getOrderSnapshot(requestId);
-      if (!existing && !partner.wallet) {
-        throw new ServiceError(400, "请先绑定收款钱包，再确认测试订单。");
-      }
-      const recipient = opts.store.snapshotOrderRecipient(
-        requestId,
-        existing?.recipient ?? partner.wallet,
-        orderReservationRequestId(requestId),
-      );
-      try {
-        const paid = await opts.source.payOrder!(requestId);
-        if (paid.commissionUsdc === "0") {
-          opts.store.setOrderError(requestId, null);
-          return toPublicOrder(paid, {
-            recipient,
-            error: null,
-          });
-        }
-        if (!opts.source.reserveFrozen) {
-          throw new ServiceError(502, "来源服务暂时不可用。");
-        }
-        await opts.source.reserveFrozen({
-          requestId: orderReservationRequestId(requestId),
-          recipient,
-          amountUsdc: paid.commissionUsdc,
-        });
-        opts.store.setOrderError(requestId, null);
-        return toPublicOrder(paid, { recipient, error: null });
-      } catch (err) {
-        const message = sanitizeError(err);
-        try {
-          opts.store.setOrderError(requestId, message);
-        } catch {
-          /* snapshot must already exist */
-        }
-        throw err instanceof ServiceError ? err : new ServiceError(502, message);
-      }
-    });
+    return lockOrder(requestId, () => awardDemoOrder(requestId));
   };
 
   const state = async (role: AuthRole | null): Promise<AppState> => {
@@ -459,6 +502,12 @@ export function createApp(opts: {
       minAmount: opts.config.minAmount.toString(),
       commission: commissionFromBalances(opts.source.kind, sourceBalances),
       orderDemo,
+      x402: {
+        enabled: x402Enabled,
+        network: X402_NETWORK,
+        asset: CIRCLE_FUJI_USDC,
+        payTo: opts.config.chain.contract,
+      },
       ...(authEnabled ? { authEnabled: true, role: role ?? undefined } : {}),
     };
     if (!promoterView) {
@@ -610,6 +659,23 @@ export function createApp(opts: {
         return json(200, {
           order: await payDemoOrder(decodeURIComponent(payMatch[1] ?? "")),
         });
+      }
+      const x402Match = /^\/api\/x402\/orders\/([^/]+)\/pay$/.exec(url.pathname);
+      if (x402Match) {
+        if (!x402Service) throw new ServiceError(404, "找不到该接口。");
+        requireOrderDemo();
+        const requestId = parseOrderRequestId(
+          decodeURIComponent(x402Match[1] ?? ""),
+        );
+        const signatureHeader = headerGet(req.headers, PAYMENT_SIGNATURE_HEADER);
+        const result = await lockOrder(requestId, () =>
+          x402Service.pay({
+            requestId,
+            host,
+            signatureHeader,
+          }),
+        );
+        return json(result.status, { order: result.order }, result.headers);
       }
       switch (url.pathname) {
         case "/api/demo/commission": {

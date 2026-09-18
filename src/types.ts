@@ -33,6 +33,27 @@ export type SourceOrder = {
   status: SourceOrderStatus;
 };
 
+export type X402PaymentStatus =
+  | 'required'
+  | 'submitted'
+  | 'settled'
+  | 'completed'
+  | 'blocked';
+
+export type PublicX402Payment = {
+  mode: 'x402';
+  status: X402PaymentStatus;
+  txHash: string | null;
+  error: string | null;
+};
+
+export type PublicX402Config = {
+  enabled: boolean;
+  network: 'eip155:43113';
+  asset: string;
+  payTo: string;
+};
+
 export type PublicOrder = {
   requestId: string;
   tradeNo: string;
@@ -42,6 +63,7 @@ export type PublicOrder = {
   status: SourceOrderStatus;
   recipient: string;
   error: string | null;
+  payment?: PublicX402Payment;
 };
 
 export type SourceItem = {
@@ -167,6 +189,7 @@ export type AppState = {
   sourceError?: string;
   authEnabled?: boolean;
   role?: AuthRole;
+  x402: PublicX402Config;
 };
 
 export class ServiceError extends Error {

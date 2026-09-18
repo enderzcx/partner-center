@@ -10,6 +10,7 @@ import {
   MAX_AMOUNT,
   MAX_LEDGER,
 } from "./money.ts";
+import type { X402OrderRecord, X402PaymentPayload } from "./x402/types.ts";
 import {
   type Address,
   type AuthRole,
@@ -18,6 +19,7 @@ import {
   type PayoutRecord,
   type PayoutStatus,
   type PublicPayout,
+  type X402PaymentStatus,
   ServiceError,
   toPublicPayout,
 } from "./types.ts";
@@ -35,6 +37,14 @@ const STATUSES = new Set<PayoutStatus>([
   "blocked",
 ]);
 
+const X402_STATUSES = new Set<X402PaymentStatus>([
+  "required",
+  "submitted",
+  "settled",
+  "completed",
+  "blocked",
+]);
+
 function payoutId(merchantId: string, sourceId: string): Hex {
   return keccak256(toHex(`${merchantId}/${sourceId}`));
 }
@@ -44,6 +54,29 @@ function address(value: string, label = "地址"): Address {
     throw new ServiceError(400, `${label}无效。`);
   }
   return getAddress(value) as Address;
+}
+
+function mapX402Order(row: Record<string, unknown>): X402OrderRecord {
+  const status = String(row.status);
+  if (!X402_STATUSES.has(status as X402PaymentStatus)) {
+    throw new ServiceError(500, "付款状态异常。");
+  }
+  return {
+    requestId: String(row.request_id),
+    status: status as X402PaymentStatus,
+    payTo: String(row.pay_to) as Address,
+    asset: String(row.asset) as Address,
+    amount: String(row.amount),
+    commissionRate: String(row.commission_rate),
+    payer: row.payer ? (String(row.payer) as Address) : null,
+    nonce: row.nonce ? (String(row.nonce) as Hex) : null,
+    txHash: row.tx_hash ? (String(row.tx_hash) as Hex) : null,
+    error: row.error ? String(row.error) : null,
+    scanFromBlock: row.scan_from_block ? BigInt(String(row.scan_from_block)) : null,
+    scanToBlock: row.scan_to_block ? BigInt(String(row.scan_to_block)) : null,
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
+  };
 }
 
 function mapPayout(row: Record<string, unknown>): PayoutRecord {
@@ -163,6 +196,32 @@ export function createStore(opts: {
       reservation_request_id TEXT NOT NULL UNIQUE,
       created_at INTEGER NOT NULL,
       error TEXT
+    );
+    CREATE TABLE IF NOT EXISTS x402_orders (
+      request_id TEXT PRIMARY KEY,
+      status TEXT NOT NULL,
+      pay_to TEXT NOT NULL,
+      asset TEXT NOT NULL,
+      amount TEXT NOT NULL,
+      commission_rate TEXT NOT NULL,
+      payer TEXT,
+      nonce TEXT,
+      tx_hash TEXT,
+      error TEXT,
+      scan_from_block TEXT,
+      scan_to_block TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS x402_authorizations (
+      request_id TEXT PRIMARY KEY,
+      chain_id INTEGER NOT NULL,
+      token TEXT NOT NULL,
+      payer TEXT NOT NULL,
+      nonce TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      UNIQUE (chain_id, token, payer, nonce)
     );
   `);
   db.run(
@@ -781,6 +840,255 @@ export function createStore(opts: {
       if (result.changes !== 1) {
         throw new ServiceError(404, "找不到该订单。");
       }
+    },
+    getX402Order(requestId: string): X402OrderRecord | null {
+      const row = db
+        .query(
+          `SELECT request_id, status, pay_to, asset, amount, commission_rate, payer, nonce,
+                  tx_hash, error, scan_from_block, scan_to_block, created_at, updated_at
+           FROM x402_orders WHERE request_id = ?`,
+        )
+        .get(requestId) as Record<string, unknown> | null;
+      return row ? mapX402Order(row) : null;
+    },
+    listX402Orders(): X402OrderRecord[] {
+      const rows = db
+        .query(
+          `SELECT request_id, status, pay_to, asset, amount, commission_rate, payer, nonce,
+                  tx_hash, error, scan_from_block, scan_to_block, created_at, updated_at
+           FROM x402_orders ORDER BY created_at ASC`,
+        )
+        .all() as Record<string, unknown>[];
+      return rows.map(mapX402Order);
+    },
+    createX402Order(input: {
+      requestId: string;
+      payTo: Address;
+      asset: Address;
+      amount: string;
+      commissionRate: string;
+    }): X402OrderRecord {
+      return tx(() => {
+        const existing = db
+          .query(`SELECT * FROM x402_orders WHERE request_id = ?`)
+          .get(input.requestId) as Record<string, unknown> | null;
+        if (existing) {
+          const mapped = mapX402Order(existing);
+          if (
+            mapped.amount !== input.amount ||
+            mapped.payTo.toLowerCase() !== input.payTo.toLowerCase() ||
+            mapped.asset.toLowerCase() !== input.asset.toLowerCase()
+          ) {
+            throw new ServiceError(409, "同一来源的金额或收款地址不能更改。");
+          }
+          return mapped;
+        }
+        const createdAt = now();
+        db.run(
+          `INSERT INTO x402_orders (
+             request_id, status, pay_to, asset, amount, commission_rate,
+             created_at, updated_at
+           ) VALUES (?, 'required', ?, ?, ?, ?, ?, ?)`,
+          [
+            input.requestId,
+            getAddress(input.payTo),
+            getAddress(input.asset),
+            input.amount,
+            input.commissionRate,
+            createdAt,
+            createdAt,
+          ],
+        );
+        return mapX402Order(
+          db
+            .query(`SELECT * FROM x402_orders WHERE request_id = ?`)
+            .get(input.requestId) as Record<string, unknown>,
+        );
+      });
+    },
+    pinX402Authorization(input: {
+      requestId: string;
+      chainId: number;
+      token: Address;
+      payer: Address;
+      nonce: Hex;
+      payload: X402PaymentPayload;
+    }): { order: X402OrderRecord; payload: X402PaymentPayload } {
+      return tx(() => {
+        const current = db
+          .query(`SELECT * FROM x402_orders WHERE request_id = ?`)
+          .get(input.requestId) as Record<string, unknown> | null;
+        if (!current) throw new ServiceError(404, "找不到该订单。");
+        const order = mapX402Order(current);
+        const payer = address(input.payer, "付款地址");
+        const token = address(input.token, "代币");
+        const nonce = input.nonce.toLowerCase() as Hex;
+        if (order.status === "blocked") {
+          throw new ServiceError(409, "付款未完成。");
+        }
+        if (order.nonce && order.nonce.toLowerCase() !== nonce) {
+          throw new ServiceError(409, "该订单已绑定付款授权。");
+        }
+        if (order.payer && order.payer.toLowerCase() !== payer.toLowerCase()) {
+          throw new ServiceError(409, "该订单已绑定付款授权。");
+        }
+        const taken = db
+          .query(
+            `SELECT request_id FROM x402_authorizations
+             WHERE chain_id = ? AND token = ? AND payer = ? AND nonce = ?`,
+          )
+          .get(input.chainId, token, payer, nonce) as { request_id: string } | null;
+        if (taken && taken.request_id !== input.requestId) {
+          throw new ServiceError(409, "该付款已被使用。");
+        }
+        const existingPayload = db
+          .query(
+            `SELECT payload_json FROM x402_authorizations WHERE request_id = ?`,
+          )
+          .get(input.requestId) as { payload_json: string } | null;
+        if (!existingPayload) {
+          try {
+            db.run(
+              `INSERT INTO x402_authorizations (
+                 request_id, chain_id, token, payer, nonce, payload_json, created_at
+               ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              [
+                input.requestId,
+                input.chainId,
+                token,
+                payer,
+                nonce,
+                JSON.stringify(input.payload),
+                now(),
+              ],
+            );
+          } catch {
+            const raced = db
+              .query(
+                `SELECT request_id FROM x402_authorizations
+                 WHERE chain_id = ? AND token = ? AND payer = ? AND nonce = ?`,
+              )
+              .get(input.chainId, token, payer, nonce) as {
+              request_id: string;
+            } | null;
+            if (raced && raced.request_id !== input.requestId) {
+              throw new ServiceError(409, "该付款已被使用。");
+            }
+            throw new ServiceError(409, "该订单已绑定付款授权。");
+          }
+        }
+        const nextStatus =
+          order.status === "required" ? "submitted" : order.status;
+        db.run(
+          `UPDATE x402_orders
+           SET status = ?, payer = ?, nonce = ?, updated_at = ?
+           WHERE request_id = ?`,
+          [nextStatus, payer, nonce, now(), input.requestId],
+        );
+        const stored = existingPayload
+          ? (JSON.parse(existingPayload.payload_json) as X402PaymentPayload)
+          : input.payload;
+        return {
+          order: mapX402Order(
+            db
+              .query(`SELECT * FROM x402_orders WHERE request_id = ?`)
+              .get(input.requestId) as Record<string, unknown>,
+          ),
+          payload: stored,
+        };
+      });
+    },
+    getX402Payload(requestId: string): X402PaymentPayload | null {
+      const row = db
+        .query(
+          `SELECT payload_json FROM x402_authorizations WHERE request_id = ?`,
+        )
+        .get(requestId) as { payload_json: string } | null;
+      if (!row) return null;
+      try {
+        return JSON.parse(row.payload_json) as X402PaymentPayload;
+      } catch {
+        throw new ServiceError(500, "付款状态异常。");
+      }
+    },
+    setX402ScanRange(requestId: string, fromBlock: bigint, toBlock?: bigint) {
+      const result = db.run(
+        `UPDATE x402_orders
+         SET scan_from_block = COALESCE(scan_from_block, ?),
+             scan_to_block = ?,
+             updated_at = ?
+         WHERE request_id = ?`,
+        [
+          fromBlock.toString(),
+          toBlock == null ? null : toBlock.toString(),
+          now(),
+          requestId,
+        ],
+      );
+      if (result.changes !== 1) throw new ServiceError(404, "找不到该订单。");
+    },
+    markX402Settled(requestId: string, txHash: Hex) {
+      tx(() => {
+        const current = db
+          .query(`SELECT status, tx_hash FROM x402_orders WHERE request_id = ?`)
+          .get(requestId) as { status: string; tx_hash: string | null } | null;
+        if (!current) throw new ServiceError(404, "找不到该订单。");
+        if (current.status === "completed" || current.status === "settled") {
+          if (
+            current.tx_hash &&
+            current.tx_hash.toLowerCase() !== txHash.toLowerCase()
+          ) {
+            throw new ServiceError(409, "该订单已绑定付款授权。");
+          }
+          db.run(
+            `UPDATE x402_orders SET tx_hash = COALESCE(tx_hash, ?), error = NULL, updated_at = ?
+             WHERE request_id = ?`,
+            [txHash, now(), requestId],
+          );
+          return;
+        }
+        if (current.status !== "submitted") {
+          throw new ServiceError(409, "这笔付款还不能确认。");
+        }
+        const result = db.run(
+          `UPDATE x402_orders
+           SET status = 'settled', tx_hash = ?, error = NULL, updated_at = ?
+           WHERE request_id = ? AND status = 'submitted'`,
+          [txHash, now(), requestId],
+        );
+        if (result.changes !== 1) {
+          throw new ServiceError(409, "这笔付款还不能确认。");
+        }
+      });
+    },
+    markX402Completed(requestId: string) {
+      const result = db.run(
+        `UPDATE x402_orders
+         SET status = 'completed', error = NULL, updated_at = ?
+         WHERE request_id = ? AND status IN ('settled', 'completed')`,
+        [now(), requestId],
+      );
+      if (result.changes !== 1) {
+        const current = db
+          .query(`SELECT status FROM x402_orders WHERE request_id = ?`)
+          .get(requestId) as { status: string } | null;
+        if (current?.status === "completed") return;
+        throw new ServiceError(409, "这笔付款还不能记为完成。");
+      }
+    },
+    blockX402(requestId: string, error: string) {
+      db.run(
+        `UPDATE x402_orders
+         SET status = 'blocked', error = ?, updated_at = ?
+         WHERE request_id = ? AND status IN ('required', 'submitted', 'blocked')`,
+        [error, now(), requestId],
+      );
+    },
+    setX402Error(requestId: string, error: string | null) {
+      db.run(
+        `UPDATE x402_orders SET error = ?, updated_at = ? WHERE request_id = ?`,
+        [error, now(), requestId],
+      );
     },
     partnerPublic(balances?: {
       available: string;

@@ -1,1 +1,28 @@
-{"name":"settlement-fuji-demo","version":"0.1.0","private":true,"type":"module","scripts":{"dev":"bun src/server.ts","test":"bun test","typecheck":"tsc --noEmit","chain:compile":"bun scripts/compile.ts","chain:local":"bun scripts/local-chain.ts","verify":"bun run typecheck && bun test","demo:orders":"bun scripts/order-demo.ts","verify:orders":"bun scripts/verify-order-demo.ts"},"dependencies":{"viem":"2.47.0","@openzeppelin/contracts":"5.4.0"},"devDependencies":{"@types/bun":"1.3.10","typescript":"5.9.3","solc":"0.8.30","ganache":"7.9.2"}}
+{
+  "name": "settlement-fuji-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun src/server.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "chain:compile": "bun scripts/compile.ts",
+    "chain:local": "bun scripts/local-chain.ts",
+    "verify": "bun run typecheck && bun test",
+    "demo:orders": "bun scripts/order-demo.ts",
+    "verify:orders": "bun scripts/verify-order-demo.ts"
+  },
+  "dependencies": {
+    "viem": "2.47.0",
+    "@openzeppelin/contracts": "5.4.0"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.10",
+    "@x402/core": "2.26.0",
+    "@x402/evm": "2.26.0",
+    "ganache": "7.9.2",
+    "solc": "0.8.30",
+    "typescript": "5.9.3"
+  }
+}
