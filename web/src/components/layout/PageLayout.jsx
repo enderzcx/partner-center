@@ -39,7 +39,7 @@ const PageLayout = () => {
   const location = useLocation();
   const isPublicHome = location.pathname === '/';
   const isAuthPage = location.pathname === '/login';
-  const isDocsPage = location.pathname === '/docs';
+  const isDocsPage = ['/docs', '/progress'].includes(location.pathname);
   const isPublicChrome = isPublicHome || isAuthPage || isDocsPage;
   const isConsoleRoute = location.pathname.startsWith('/console');
   const showSider = isConsoleRoute && (!isMobile || drawerOpen);

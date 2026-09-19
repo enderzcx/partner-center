@@ -31,6 +31,7 @@ export const GLOBAL_PUBLIC_HEADER_COPY = {
 };
 
 export const GLOBAL_PUBLIC_NAV_LINKS = [
+  { text: '产品进展', itemKey: 'progress', to: '/progress' },
   {
     text: GLOBAL_PUBLIC_HEADER_COPY.docs,
     itemKey: 'docs',
@@ -51,6 +52,7 @@ const NAV_ITEMS = GLOBAL_PUBLIC_NAV_LINKS.map((item) => ({
 
 export function currentGlobalPublicNav(pathname = '') {
   if (pathname === '/docs' || pathname.startsWith('/docs/')) return 'docs';
+  if (pathname === '/progress') return 'progress';
   if (pathname === '/login') return 'login';
   return '';
 }
