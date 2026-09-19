@@ -77,7 +77,7 @@ x402 测试收款已完成独立验收，见 [X402.md](docs/X402.md)。它先核
 
 ## 源码与许可
 
-个人仓库：`enderzcx/partner-center`。创建时为私有仓库；远端托管不等于公开开源发布。
+个人仓库：`enderzcx/partner-center`。已于 2026-09-19 经项目所有者授权公开，用于 Team1 Builder Day @Shenzhen 项目提交。
 
 迁入前端保留 new-api / QuantumNous 的版权与许可声明，适用上游条款见 [UPSTREAM-LICENSE](UPSTREAM-LICENSE)。合约等文件另有文件级 SPDX 标记，字体许可证随资源保存；不能把整个项目统一重新声明为原创 MIT 项目。
 
