@@ -1,0 +1,21 @@
+{
+  "releasedAt": "2026-09-19T08:23:02.783529+00:00",
+  "code": "387d46b",
+  "image": "partner-demo:ecosystem-v10",
+  "imageId": "sha256:bef91175aa574ce5875063576d76f13826a2a0ddfc9e10083ba26f85fd43051e",
+  "archiveSha256": "1a8489958cf33c92236eec1479a7bbc772be000340b452f2e95d2ed8f81cdb9f",
+  "backup": "/home/ubuntu/partner-demo/backups/pre-ecosystem-v10-20260919",
+  "rollback": "restore narrative-v9 image and prior env, retain current ledger",
+  "health": "healthy",
+  "restartCount": 0,
+  "ledgerUnchanged": true,
+  "completedPayouts": 3,
+  "paidBaseUnits": "3000000",
+  "pendingBaseUnits": "0",
+  "newPayments": 0,
+  "tests": "133 pass, 1073 assertions; typecheck and frontend build passed",
+  "review": "independent release_review approve, narrative/scope/static assets verified",
+  "browser": "Ego space25: 1440/375px, homepage/docs/progress/demo, 11 slides with all screenshots loaded, keyboard and notes, motion pause/reduced-motion, no horizontal overflow",
+  "submission": "same project 3caebdc4-061d-46f3-8031-831412a2dd00 updated and Final Submit success; four fields exact API readback; demo link and four screenshots present",
+  "latestSteering": "Narrative settled. L1 architecture, fees, validators, admission, cross-chain and scheduling remain to discuss. Configuration examples are candidates only."
+}

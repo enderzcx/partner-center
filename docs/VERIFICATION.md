@@ -198,3 +198,12 @@ Ender批准“都做好来吧 可以上线”。b18105d 发布为 partner-demo:n
 类型检查、132项回归测试/1069断言、新增路由后的3项静态测试/33断言及构建通过。独立发布复核approve；刷新首页和进度截图，逐页肉眼检查10页，验证翻页、讲稿与图片放大。桌面/375px页面无横向溢出，说明页移动端留白已修正；暂停与减少动态检查通过。公网读回正确的4+5节点、首页与说明文案、10页演示及全部图片/字体。容器healthy/0重启，原有3笔付款和累计3测试USDC逐字段不变，pending0，无新增付款。
 
 备份 `backups/pre-narrative-v9-20260919`；回滚仅换回explorer-v8镜像和配置，保留当前账本。新权益合约仍未部署Fuji，未更换执行器或业务规则。发布证据：`evidence/narrative-v9-release.json`。
+
+
+## 2026-09-19 new-api／sub2api 生态定位与L1路线材料更新
+
+Ender要求按最新Pro对话定稿统一叙事，L1实现细节后续单独讨论。代码387d46b发布为partner-demo:ecosystem-v10。首页、说明、进度页、11页在线/离线演示、讲稿、README和GitHub简介已同步。既有Fuji证据保留，通用适配与L1配置包明确为路线，具体模板仅候选示例。
+
+133项测试/1073断言、类型检查、构建、独立复核通过。桌面/375px检查、暂停/reduced-motion及在线11页图片/字体和控制正常。原项目Builder Hub简介、完整说明、技术说明、开发连续性披露已逐字段读回一致，新增/demo链接及2张截图，Final Submit成功；原项目ID不变。
+
+容器healthy/0重启，3笔完成付款、累计3测试USDC和pending0逐字段不变，无新增付款。备份backups/pre-ecosystem-v10-20260919，回滚仅换镜像配置、不覆盖账本。证据：evidence/ecosystem-v10-release.json、evidence/ecosystem-v10-submission.json。

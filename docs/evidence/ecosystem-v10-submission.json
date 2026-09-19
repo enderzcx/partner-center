@@ -1,0 +1,14 @@
+{
+  "projectId": "3caebdc4-061d-46f3-8031-831412a2dd00",
+  "updatedAt": "2026-09-19T08:21:20.594Z",
+  "matches": {
+    "short_description": true,
+    "full_description": true,
+    "tech_stack": true,
+    "explanation": true
+  },
+  "demoLinks": "https://partner.bflabs.app/,https://partner.bflabs.app/progress,https://partner.bflabs.app/demo",
+  "screenshotCount": 4,
+  "preexisting": true,
+  "successMessage": "Your project has been submitted!"
+}
