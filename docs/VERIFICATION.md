@@ -177,3 +177,8 @@ Ender明确要求“上线吧”。已发布代码b1e96c6对应的partner-demo:o
 127 tests / 944 assertions 通过，typecheck、前端构建、独立代码审查、1440px 与 375px 浏览器检查、reduced-motion 检查通过。公网读回新文案及交易链接；容器 healthy、0 重启；原有3笔结算与收益账本前后相同，无新增付款。发布证据见 `evidence/progress-v6-release.json`。
 
 镜像采用本机原生构建的前端产物覆盖既有 overseas-v5 镜像，仅更换 web/dist 与静态路由表；标准 Dockerfile 仍保留完整源码构建方式。回滚至 overseas-v5 镜像并保留当前数据库，备份位置见发布证据。
+
+
+## 2026-09-19 C 版纵向脉冲页面发布
+
+Ender 选择 C 后授权“上线吧”。`/progress` 已替换为纵向脉冲链：前四个 Fuji 已验收节点亮起，后续阶段暗显；新权益合约明确标记本地验证、待接入 Fuji。保留 `/progress-lab` 三版比较。公网1440/375px、暂停动效、匿名API拒绝检查通过；容器 healthy、0重启；原3笔付款、已付3测试USDC和pending0保持一致。新合约代码已推送，但未部署或接入执行器。发布证据见 `evidence/pulse-v7-release.json`。

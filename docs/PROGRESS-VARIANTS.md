@@ -12,4 +12,4 @@
 
 动画可暂停；系统 reduced-motion 时停动画但保留所有节点。手机均使用纵向布局。候选入口不添加到线上导航，不替换 `/progress`，待 Ender 选定后再整合发布。
 
-Ender 已选择 C 脉冲。正式本地 `/progress` 使用 C，不显示方案切换；`/progress-lab` 保留三版比较。此次尚未部署公网。
+Ender 已选择 C 脉冲。正式本地 `/progress` 使用 C，不显示方案切换；`/progress-lab` 保留三版比较。随后经 Ender 授权已部署公网，见 `evidence/pulse-v7-release.json`。

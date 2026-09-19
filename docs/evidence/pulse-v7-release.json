@@ -1,0 +1,27 @@
+{
+  "releasedAt": "2026-09-19T04:30:36.707198+00:00",
+  "origin": "https://partner.bflabs.app/progress",
+  "code": "d25ed16cb5649b8412ab4393dcea921ee3b4f4ce",
+  "image": "partner-demo:pulse-v7",
+  "imageId": "sha256:f7e10d28f9fc7c8456cbcf97219d7e673c9caf3e946b8163d19a2bb71469426c",
+  "archiveSha256": "d738dad3bebf92e5db4b82561c783c89fd7c30cb66456e63a20da99af551ee76",
+  "baseImage": "partner-demo:progress-v6",
+  "backup": "/home/ubuntu/partner-demo/backups/pre-pulse-v7-20260919",
+  "healthy": true,
+  "restarts": 0,
+  "ledgerUnchanged": true,
+  "payoutCount": 3,
+  "paidMicroUSDC": "3000000",
+  "pendingMicroUSDC": "0",
+  "newPayments": 0,
+  "browser": {
+    "desktopWidth": 1440,
+    "mobileWidth": 375,
+    "horizontalOverflow": false,
+    "brightNodes": 4,
+    "pauseControl": "PASS"
+  },
+  "anonymousStateStatus": 401,
+  "commissionEscrow": "local validation only; not deployed or integrated",
+  "packaging": "Native frontend build over immutable prior runtime; only web/dist and src/static.ts replaced."
+}
