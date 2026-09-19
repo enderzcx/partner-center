@@ -11,11 +11,11 @@ const nodes = [
   ['更多商家','后续规划 · 生产验收','07'],
 ];
 const roadmap = [
- ['佣金权利', '本地已验证', '固定受益人、金额和领取时间，预留已确认佣金的资金。尚未部署 Fuji。'],
- ['到期领取', '下一步验证', '接入 Fuji 与执行器，验证服务停机后仍可触发领取，款项只付给原受益人。'],
- ['更多产品接入', '后续规划', '验证第二个业务与独立商家。统一合作入口，按产品保留订单、规则与收益依据。'],
- ['Avalanche 互通', '研究规划', '通过 ICM／ICTT 验证跨 L1 业务与佣金资金接入，分别核对资金到达与权利登记。'],
- ['专用结算 L1', '按需求评估', '依据实际结算规模、成本与安全要求决定是否建设。商家自部署不要求自建链。'],
+ ['佣金权利接入', '合约本地已验证', '固定受益人、金额和领取时间，预留最终确认佣金的资金。下一步接入 Fuji，验证停掉后台后仍可触发领取。'],
+ ['new-api／sub2api 适配', '开发路线', '从指定版本建立兼容矩阵，验证订单、退款、去重与失败恢复。当前仅验证 BeefAPI 测试接入。'],
+ ['结算 L1 原型', '开发路线', '探索让 L1 服务于佣金规则、资金权利与结算执行。费用、验证者、准入及调度方案后续单独设计。'],
+ ['预制配置与专属部署', '开发路线', '计划提供可复用的 L1 配置包，按商家需求定制规则并协助部署。具体模板后续确定，尚未提供下载或部署服务。'],
+ ['跨 L1 与协议优化', '后续研究', '通过 ICM／ICTT 接入其他 L1 的业务与资金，再依据实测评估佣金预编译和原生调度。'],
 ];
 const variants = {rail:['A / 光轨','一条光轨，串起每笔到账。'],circuit:['B / 回路','让付款的每一步，都有回响。'],pulse:['C / 脉冲','从一次付款，到伙伴到账。']};
 const incoming=fujiExplorerTx('0xd0df9f773a5d033e4ee0475a47cf48f54c653b778077662555e6c531d45104c6') + '#logs';
@@ -42,10 +42,10 @@ export default function ProgressLab({preview=true}){
   </section>
   <footer className='chain-caption'><div><span>已完成案例 · 2026.09.18</span><p>10 测试 USDC 收款 → 10% 佣金 → 1 测试 USDC 到账</p></div><p>动画为历史流程示意，不发起付款。<br/>Avalanche Fuji 测试资金无实际价值。</p></footer>
   {!preview && <section className='chain-roadmap' aria-labelledby='roadmap-title'>
-    <div className='chain-roadmap-heading'><p className='chain-kicker'>DEVELOPMENT / 开发路线</p><h2 id='roadmap-title'>让已确认的佣金，<br/>有资金保障。</h2><p>从单链权利验证开始，逐步接入更多业务。<br/>以下能力尚未进入当前 Fuji 付款流程。</p></div>
+    <div className='chain-roadmap-heading'><p className='chain-kicker'>DEVELOPMENT / 开发路线</p><h2 id='roadmap-title'>让已确认的佣金，<br/>有资金保障。</h2><p>面向 new-api、sub2api 部署者，连接业务与结算规则。<br/>以下能力尚未进入当前 Fuji 付款流程。</p></div>
     <ol>{roadmap.map(([title,status,detail],i)=><li key={title}><span className='chain-step'>{String(i+1).padStart(2,'0')} / {status}</span><h3>{title}</h3><p>{detail}</p></li>)}</ol>
-    <div className='chain-roadmap-note'><h3>Agent 也能参与合作</h3><p>计划通过 MCP，让商家和伙伴自己的 Agent 查询收益、规则与回执，获取推广资料并辅助准备内容。发布需经授权，实际效果以业务数据核验。</p></div>
+    <div className='chain-roadmap-note'><h3>商家自部署，结算网络按需选择</h3><p>软件可接入已有链，专属 L1 是后续交付方向。配置包计划覆盖规则参数、费用与准入设置，并配套部署检查、备份及升级流程。验证者、资产路径和已登记佣金的领取保障需按部署方案明确。</p><h3>Agent 也能参与合作</h3><p>计划通过 MCP，让商家和伙伴自己的 Agent 查询收益、规则与回执，获取推广资料并辅助准备内容。发布需经授权，实际效果以业务数据核验。</p></div>
   </section>}
-  {!preview && <section className='chain-about'><div><h2>成果，可以核对。</h2><p>10 测试 USDC 进入 Settlement 合约，业务系统按锁定的 10% 确认佣金，同一合约付出 1 测试 USDC，再回写账本。收款与返佣是两笔交易。当前为单商家测试环境。</p><a href='https://testnet.avascan.info/blockchain/c/address/0x5c905e43e0BB381534530d5e05DF56ab1f420899' target='_blank' rel='noreferrer'>查看当前 Fuji 结算合约 ↗</a></div><div><h2>商家自己的伙伴中心。</h2><p>我们正在建设可自主部署、连接已有业务的伙伴中心，逐步支持旗下多个产品。欢迎参与业务接入、Fuji 权利验证和合约安全评估。</p><a href='/demo'>查看演示 ↗</a><a href='mailto:hello@bflabs.cn'>联系 BF Labs ↗</a><a href='https://github.com/enderzcx/partner-center' target='_blank' rel='noreferrer'>查看开源代码 ↗</a></div></section>}
+  {!preview && <section className='chain-about'><div><h2>成果，可以核对。</h2><p>10 测试 USDC 进入 Settlement 合约，业务系统按锁定的 10% 确认佣金，同一合约付出 1 测试 USDC，再回写账本。收款与返佣是两笔交易。当前为单商家测试环境。</p><a href='https://testnet.avascan.info/blockchain/c/address/0x5c905e43e0BB381534530d5e05DF56ab1f420899' target='_blank' rel='noreferrer'>查看当前 Fuji 结算合约 ↗</a></div><div><h2>商家自己的伙伴中心。</h2><p>优先服务 new-api、sub2api 部署者，通过适配器连接既有业务。欢迎参与版本适配、佣金权利验证与定制 L1 原型。</p><a href='/demo'>查看演示 ↗</a><a href='mailto:hello@bflabs.cn'>联系 BF Labs ↗</a><a href='https://github.com/enderzcx/partner-center' target='_blank' rel='noreferrer'>查看开源代码 ↗</a></div></section>}
  </main>
 }

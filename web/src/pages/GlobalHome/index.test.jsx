@@ -12,8 +12,8 @@ describe('partner public home', () => {
       </MemoryRouter>,
     );
 
-    expect(html).toContain('佣金自动结算');
-    expect(html).toContain('每笔到账可查');
+    expect(html).toContain('服务商伙伴中心');
+    expect(html).toContain('链上佣金结算');
     expect(html).toContain('BeefAPI 是首个测试接入案例');
     expect(html).toContain('已完成案例');
     expect(html).toContain('class="global-home-hero"');

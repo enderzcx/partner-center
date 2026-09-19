@@ -1,8 +1,8 @@
 # 伙伴中心 · Partner Center
 
-独立的佣金自动结算应用，BeefAPI 为第一个测试接入方。商家提供已确认并冻结的佣金单，服务将测试 USDC 支付给推广者，并把核验结果回写原账本。
+面向 new-api、sub2api 部署者的自部署伙伴中心，连接已有网关、业务账本与链上佣金结算。BeefAPI 是首个已验证的测试接入方；两个上游生态的标准适配尚待开发与版本验收。
 
-**当前已验收：Avalanche Fuji 公网测试订单收款与自动返佣闭环。** 完整海外站 React 前端已迁入伙伴中心，公网演示为 overseas-v5。迁移范围见 [前端验收合同](docs/OVERSEAS-ACCEPTANCE.md)。公网发布状态与链上证据以 [验证记录](docs/VERIFICATION.md) 为准。
+**当前已验收：Avalanche Fuji 公网测试订单收款与自动返佣闭环。** 完整海外站 React 前端已迁入伙伴中心，公网展示为持续迭代版本。迁移范围见 [前端验收合同](docs/OVERSEAS-ACCEPTANCE.md)。公网发布状态与链上证据以 [验证记录](docs/VERIFICATION.md) 为准。
 
 ## 前端构建
 
@@ -125,8 +125,8 @@ bun run verify
 
 ## 产品与演示
 
-产品方向是商家可自主部署、连接已有业务的伙伴中心，逐步支持旗下多个产品的合作管理。当前仍为单商家受控测试版本，多产品与通用接入尚待验证。
+产品方向是优先服务 new-api、sub2api 部署者，提供独立伙伴中心与版本化适配器。商家保留现有网关、计费和账号系统，逐步在统一入口管理多个产品。当前仅为 BeefAPI 单商家受控测试，不代表上游全版本兼容或官方合作。
 
-- [在线演示](https://partner.bflabs.app/demo)：前7页约3分钟，后3页问答。展示既有 Fuji 测试案例。
+- [在线演示](https://partner.bflabs.app/demo)：前7页约3分钟，后4页问答。展示既有 Fuji 测试案例。
 - [逐页讲稿](docs/DEMO-DAY-SCRIPT.md)与[产品进展](https://partner.bflabs.app/progress)。
-- CommissionEscrow 仅本地验证，待 Fuji 接线与领取验证。ICM／ICTT 跨 L1 接入、专用 L1 评估及 MCP 接口为后续方向。
+- CommissionEscrow 仅本地验证，待 Fuji 接线与领取验证。定制结算 L1、预制配置包、商家专属部署、ICM／ICTT 及 MCP 接口均为后续方向，详见 [产品方向与路线](docs/PRODUCT-ROADMAP.md)。
