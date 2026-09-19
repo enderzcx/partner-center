@@ -1,0 +1,29 @@
+{
+  "releasedAt": "2026-09-19T07:21:15.126739+00:00",
+  "code": "b18105d",
+  "image": "partner-demo:narrative-v9",
+  "imageId": "sha256:405a46b511310830727e49400ff84090cf1a42e79cca59d81190363a82a4401b",
+  "archiveSha256": "debcb711405f47edab33cac6b6c7f1fa69018136dfabc2a472c465c8bc31f23f",
+  "backup": "/home/ubuntu/partner-demo/backups/pre-narrative-v9-20260919",
+  "rollback": "restore explorer-v8 image and prior compose environment, retain current ledger",
+  "runtime": {
+    "health": "healthy",
+    "restarts": 0
+  },
+  "verification": {
+    "regressionTests": 132,
+    "regressionAssertions": 1069,
+    "additionalStaticRouteTests": "3 pass, 33 assertions including exact demo route and denied unsafe paths",
+    "typecheck": "pass",
+    "webBuild": "pass",
+    "independentReview": "release_review approve, no blocker; refreshed home/progress screenshots and checked 375px toolbar",
+    "browser": "Ego space24, live homepage/docs/progress/demo, 1440/375px, 10 slides and 6 images loaded, fonts loaded, keys and notes functional",
+    "motion": "local pause and prefers-reduced-motion verified",
+    "ledgerUnchanged": true,
+    "completedPayouts": 3,
+    "paidBaseUnits": "3000000",
+    "pendingBaseUnits": "0",
+    "newPayments": 0
+  },
+  "scope": "presentation content and static /demo route only; CommissionEscrow remains local-only; ICM/ICTT/L1/MCP roadmap only"
+}

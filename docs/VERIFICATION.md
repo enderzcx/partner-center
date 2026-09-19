@@ -189,3 +189,12 @@ Ender 选择 C 后授权“上线吧”。`/progress` 已替换为纵向脉冲�
 修复首页、进度页、控制台回执、旧客户端与讲稿的交易路径，统一 `/blockchain/c/tx/<hash>`；合约地址使用 `/blockchain/c/address/<address>`。首页和进度页复用回执链接 helper。收款凭证直达 `#logs`。22项相关测试、111断言与构建通过。发布 `partner-demo:explorer-v8`，备份 `backups/pre-explorer-v8-20260919`；公网进度页三个目标链接读回正确，原有账本不变。Builder Hub项目说明两条链接已更正，Final Submit再次返回成功。
 
 经Fuji官方RPC读取：收款交易success、block58462165，官方USDC日志index0为AuthorizationUsed、index1为Transfer：付款人0x28172e0d973fFf24651B6Ed4cA6d1007bc168C94，收款合约0x5c905e43e0BB381534530d5e05DF56ab1f420899，value10000000，decimals6，10测试USDC。Avascan LOGS页亦显示同一token/topics/data。外层0 AVAX是主币value，不能代表USDC金额；外层发送者为中继，接收者为Multicall3。证据见 `evidence/x402-incoming-recheck-20260919.json`。
+
+
+## 2026-09-19 商家定位、路线与演示稿发布
+
+Ender批准“都做好来吧 可以上线”。b18105d 发布为 partner-demo:narrative-v9，首页明确商家自己的伙伴中心，说明页补充自主部署与多产品接入边界；C脉冲进度页分开4个Fuji已验证节点和5项开发路线。新增精确静态入口 `/demo`，7页主讲、3页问答，在线资源同源外置并沿用CSP；离线HTML内嵌图片/字体。
+
+类型检查、132项回归测试/1069断言、新增路由后的3项静态测试/33断言及构建通过。独立发布复核approve；刷新首页和进度截图，逐页肉眼检查10页，验证翻页、讲稿与图片放大。桌面/375px页面无横向溢出，说明页移动端留白已修正；暂停与减少动态检查通过。公网读回正确的4+5节点、首页与说明文案、10页演示及全部图片/字体。容器healthy/0重启，原有3笔付款和累计3测试USDC逐字段不变，pending0，无新增付款。
+
+备份 `backups/pre-narrative-v9-20260919`；回滚仅换回explorer-v8镜像和配置，保留当前账本。新权益合约仍未部署Fuji，未更换执行器或业务规则。发布证据：`evidence/narrative-v9-release.json`。
