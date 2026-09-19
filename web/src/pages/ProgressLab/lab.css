@@ -32,3 +32,14 @@
 .chain-about{clear:both;border-top:1px solid #20273426;margin-top:48px;padding-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:72px}
 .chain-about h2{font-size:24px;font-weight:500;letter-spacing:-.02em;margin:0 0 16px}.chain-about p{max-width:520px;color:var(--chain-muted);font-size:14px;line-height:1.8}.chain-about a{color:var(--chain-bright);font-size:13px;display:inline-flex;min-height:44px;align-items:center;margin-right:24px;text-underline-offset:4px}
 @media(max-width:820px){.chain-about{grid-template-columns:1fr;gap:32px}.chain-version{font-size:11px}.chain-pulse .chain-story h1{max-width:420px}}
+
+.chain-public .chain-map{min-height:650px}
+.chain-roadmap{clear:both;display:grid;grid-template-columns:42% 1fr;column-gap:8%;border-top:1px solid #20273426;margin-top:60px;padding-top:54px}
+.chain-roadmap h2{font-size:clamp(28px,3vw,42px);font-weight:500;line-height:1.4;letter-spacing:-.03em;margin:0 0 22px}
+.chain-roadmap-heading>p:last-child,.chain-roadmap-note p{font-size:14px;line-height:1.9;color:var(--chain-muted)}
+.chain-roadmap ol{list-style:none;margin:0;padding:0}.chain-roadmap li{position:relative;padding:0 0 36px 48px;border-left:1px solid var(--chain-dim)}
+.chain-roadmap li:before{content:'';position:absolute;left:-5px;top:4px;width:9px;height:9px;background:var(--chain-bg);border:1px solid #8e99a9;border-radius:50%}.chain-roadmap li:last-child{border-color:transparent;padding-bottom:0}
+.chain-roadmap h3{font-size:24px;color:#657084;font-weight:500;margin:8px 0 10px}.chain-roadmap li p{font-size:14px;color:var(--chain-muted);line-height:1.8;max-width:510px;margin:0}
+.chain-roadmap-note{grid-column:1/-1;margin-top:42px;border-top:1px solid #20273426;padding-top:24px}.chain-roadmap-note p{max-width:780px}.chain-roadmap-note h3{color:var(--chain-ink);font-size:20px}
+.chain-lab a:focus-visible,.chain-lab button:focus-visible{outline:2px solid var(--chain-bright);outline-offset:4px}
+@media(max-width:820px){.chain-public .chain-map{min-height:0}.chain-roadmap{grid-template-columns:1fr;gap:32px;margin-top:40px;padding-top:36px}.chain-roadmap ol{margin-left:10px}.chain-roadmap li{padding-left:32px}.chain-roadmap-note{margin-top:0}.chain-roadmap h2{font-size:30px}}

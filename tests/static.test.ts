@@ -21,3 +21,8 @@ test('built assets are constrained to public types and safe relative paths', () 
     expect(staticFileFor(path)).toBeNull();
   }
 });
+
+test('public demo is an exact allowlisted document', () => {
+  expect(staticFileFor('/demo')?.file).toBe('demo.html');
+  for (const path of ['/demo.html', '/demo/../secrets', '/demo%2f..%2fsecrets']) expect(staticFileFor(path)).toBeNull();
+});

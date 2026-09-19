@@ -19,6 +19,7 @@ const types: Record<string, string> = {
 };
 
 export function staticFileFor(path: string): StaticFile | null {
+  if (path === '/demo') return { file: 'demo.html', type: 'text/html; charset=utf-8' };
   if (pages.has(path)) return { file: 'index.html', type: 'text/html; charset=utf-8' };
   // Legacy names remain available for existing HTTP fixtures. No source maps,
   // arbitrary root files, encoded separators or dot-directory traversal.

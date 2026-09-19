@@ -32,7 +32,7 @@ const COPY = {
   ratesUnit: '订单与返佣', ratesLink: '了解结算规则',
   brandHome: '伙伴中心首页', brand: '伙伴中心', primaryNavigation: '主要导航',
   title: '佣金自动结算', titleSecond: '每笔到账可查',
-  heroCopy: '连接商家的业务账本，将确认的佣金付到合作伙伴钱包。BeefAPI 是首个测试接入案例。',
+  heroCopy: '商家自己的伙伴中心。连接已有业务，将确认的佣金付到伙伴钱包。BeefAPI 是首个测试接入案例。',
   getStarted: '进入控制台', receiptAria: '2026年9月18日已完成的Fuji测试网结算案例',
   receipt: 'Fuji 测试网 · 已完成案例',
   receiptRows: [
@@ -44,7 +44,7 @@ const COPY = {
   ],
   receiptTotalLabel: '本次返佣', receiptTotal: '1.00 USDC',
   routerTitle: '从确认佣金，', routerTitleSecond: '到伙伴钱包。',
-  routerLead: '商家沿用已有的订单与返佣规则。', routerLeadBreak: '确认佣金后，自动进入结算。',
+  routerLead: '接入商家已有的订单与返佣规则。', routerLeadBreak: '确认佣金后，自动进入结算。',
   routerLeadSecond: '推广者查看收益与到账记录。', routerLeadSecondBreak: '每笔付款都能打开链上回执。',
   routerAria: '佣金结算流程示意', request: '结算流程示意',
   priceTitle: '金额算清楚。', priceTitleSecond: '合作更省心。',
@@ -412,6 +412,7 @@ const GlobalHome = () => {
                 {COPY.routerLeadSecond} <br />
                 {COPY.routerLeadSecondBreak}
               </p>
+              <p>正在完善自主部署与多产品接入。<br /><Link to='/progress'>查看产品进展</Link></p>
             </div>
             <div className='global-home-router'>
               <GlobalHomeRouterRequest />

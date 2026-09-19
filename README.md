@@ -122,3 +122,11 @@ bun run verify
 ```
 
 默认演示参数为 1 USDC 最低金额、60 秒成熟期、30 秒扫描；`SETTLEMENT_MATURITY_MS=0 SETTLEMENT_TICK_MS=1000` 仅用于加速本地测试。BeefAPI 已冻结的单据按来源确认结果处理，不再次套用演示成熟期。
+
+## 产品与演示
+
+产品方向是商家可自主部署、连接已有业务的伙伴中心，逐步支持旗下多个产品的合作管理。当前仍为单商家受控测试版本，多产品与通用接入尚待验证。
+
+- [在线演示](https://partner.bflabs.app/demo)：前7页约3分钟，后3页问答。展示既有 Fuji 测试案例。
+- [逐页讲稿](docs/DEMO-DAY-SCRIPT.md)与[产品进展](https://partner.bflabs.app/progress)。
+- CommissionEscrow 仅本地验证，待 Fuji 接线与领取验证。ICM／ICTT 跨 L1 接入、专用 L1 评估及 MCP 接口为后续方向。

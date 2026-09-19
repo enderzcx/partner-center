@@ -303,6 +303,11 @@
   padding: 48px 0 96px;
 }
 
+.partner-docs > .global-home-shell {
+  width: min(1120px, calc(100% - 48px));
+  margin-inline: auto;
+}
+
 .partner-docs-head {
   display: grid;
   gap: 14px;
