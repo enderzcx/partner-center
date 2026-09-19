@@ -2,10 +2,11 @@ import solc from "solc";
 import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+const CONTRACTS = ["Settlement", "TestUSDC", "CommissionEscrow"] as const;
 export function compile() {
   const root = fileURLToPath(new URL("../", import.meta.url));
   const sources = Object.fromEntries(
-    ["Settlement", "TestUSDC"].map((name) => [
+    CONTRACTS.map((name) => [
       `${name}.sol`,
       {
         content: readFileSync(
@@ -52,7 +53,7 @@ export function compile() {
         .join("\n"),
     );
   return Object.fromEntries(
-    ["Settlement", "TestUSDC"].map((name) => [
+    CONTRACTS.map((name) => [
       name,
       {
         abi: output.contracts[`${name}.sol`][name].abi,
@@ -60,7 +61,7 @@ export function compile() {
           `0x${output.contracts[`${name}.sol`][name].evm.bytecode.object}` as `0x${string}`,
       },
     ]),
-  ) as Record<"Settlement" | "TestUSDC", { abi: any; bytecode: `0x${string}` }>;
+  ) as Record<(typeof CONTRACTS)[number], { abi: any; bytecode: `0x${string}` }>;
 }
 if (
   process.argv[1] &&
@@ -72,5 +73,7 @@ if (
       `.local/artifacts/${name}.json`,
       JSON.stringify(artifact, null, 2),
     );
-  console.log("Compiled Settlement and TestUSDC (test networks only).");
+  console.log(
+    "Compiled Settlement, TestUSDC, and CommissionEscrow (test networks only).",
+  );
 }
