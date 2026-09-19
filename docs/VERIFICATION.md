@@ -168,3 +168,12 @@ Ender明确要求“上线吧”。已发布代码b1e96c6对应的partner-demo:o
 - 发布没有新增链上付款/签名，没有修改生产BeefAPI账本。授权仅用于这次新版服务发布。
 
 完整发布凭证：evidence/overseas-v5-release.json。回滚仅恢复旧应用镜像和对应配置，保留当前账本；不要把旧数据备份覆盖到已发生后续交易的账本。Git代码及发布文档仍在本地分支，未推送远端。
+
+
+## 2026-09-19 产品进展页发布
+
+`/progress` 已部署，提供历史 Fuji 10 USDC 收款、10% 佣金、1 USDC 出款的流程回放及两笔交易链接，路线图区分已验证、下一步和规划。重播只重新播放动画，不调用付款接口。
+
+127 tests / 944 assertions 通过，typecheck、前端构建、独立代码审查、1440px 与 375px 浏览器检查、reduced-motion 检查通过。公网读回新文案及交易链接；容器 healthy、0 重启；原有3笔结算与收益账本前后相同，无新增付款。发布证据见 `evidence/progress-v6-release.json`。
+
+镜像采用本机原生构建的前端产物覆盖既有 overseas-v5 镜像，仅更换 web/dist 与静态路由表；标准 Dockerfile 仍保留完整源码构建方式。回滚至 overseas-v5 镜像并保留当前数据库，备份位置见发布证据。

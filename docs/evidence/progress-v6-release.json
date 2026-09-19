@@ -1,0 +1,32 @@
+{
+  "releasedAt": "2026-09-19T03:15:01.453673+00:00",
+  "origin": "https://partner.bflabs.app/progress",
+  "code": "fed8392",
+  "image": "partner-demo:progress-v6",
+  "imageId": "sha256:bff999bbe874b20b2af4b374b926b66dfafcbd3e3b9d9252aac89f5edb73e765",
+  "archiveSha256": "c66a166ac03f39c74437661622c09aa40a9d2f6a7960c236eefbdebeb5dca182",
+  "baseImage": "partner-demo:overseas-v5",
+  "build": "Native Bun/Vite build packaged over unchanged overseas-v5 runtime; only web/dist and src/static.ts replaced. Full emulated frontend build stopped due to slow build.",
+  "backup": "/home/ubuntu/partner-demo/backups/pre-progress-v6-20260919",
+  "tests": {
+    "pass": 127,
+    "fail": 0,
+    "assertions": 944,
+    "timeoutMs": 30000
+  },
+  "browser": {
+    "desktopWidth": 1440,
+    "mobileWidth": 375,
+    "horizontalOverflow": false,
+    "reducedMotion": "PASS",
+    "publicReceiptLinks": "PASS"
+  },
+  "container": {
+    "healthy": true,
+    "restarts": 0
+  },
+  "ledgerUnchanged": true,
+  "payoutCount": 3,
+  "paidMicroUSDC": "3000000",
+  "newPayments": 0
+}
