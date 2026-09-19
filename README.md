@@ -1,8 +1,8 @@
-# 结算台 · Fuji Demo
+# 伙伴中心 · Partner Center
 
 独立的佣金自动结算应用，BeefAPI 为第一个测试接入方。商家提供已确认并冻结的佣金单，服务将测试 USDC 支付给推广者，并把核验结果回写原账本。
 
-**当前已验收：Avalanche Fuji 公网测试订单收款与自动返佣闭环。** 本工作树正在将完整海外站 React 前端迁入伙伴中心，迁移范围见 [前端验收合同](docs/OVERSEAS-ACCEPTANCE.md)。公网发布状态与链上证据以 [验证记录](docs/VERIFICATION.md) 为准。
+**当前已验收：Avalanche Fuji 公网测试订单收款与自动返佣闭环。** 完整海外站 React 前端已迁入伙伴中心，公网演示为 overseas-v5。迁移范围见 [前端验收合同](docs/OVERSEAS-ACCEPTANCE.md)。公网发布状态与链上证据以 [验证记录](docs/VERIFICATION.md) 为准。
 
 ## 前端构建
 
@@ -67,9 +67,19 @@ bun scripts/fuji-preflight.ts
 
 该脚本只检查网络、USDC 精度和区块；可设置 `FUJI_EXECUTOR_ADDRESS` 读取测试钱包余额。成功不代表任何合约部署、出款或最终账本验收。
 
-## 公开部署前
+## 公网演示与运行边界
 
-本应用强制回环监听。公网身份认证、商家/推广者权限隔离、TLS 会话、多商家签名隔离、生产密钥托管和人工异常处理尚不在此次本地闭环的完成声明里。不能把本机测试身份切换页面直接发布为真实商家后台。
+演示入口：https://partner.bflabs.app/ 。当前具备商家/推广者登录、角色权限隔离和 HTTPS 会话；应用进程仍监听回环，由反向代理提供公网入口。部署方式见 [PUBLIC-DEMO.md](docs/PUBLIC-DEMO.md)，账号与会话配置见 [AUTH-DEMO.md](docs/AUTH-DEMO.md)。仓库不提供公网账号密码或钱包私钥。
+
+x402 测试收款已完成独立验收，见 [X402.md](docs/X402.md)。它先核验 10 测试 USDC 收款，再由业务账本计算并冻结 1 测试 USDC 佣金，随后执行另一笔出款交易；这不是收款时原子分账，也不充值生产 API 余额。手动转币到合约只是补充资金，尚无通用手动充值归因入口。
+
+当前仍为受控单商家测试环境。多商家资金隔离、生产订单、退款策略、生产密钥托管和主网验收尚未完成。BeefAPI 来源适配器在另一个工作树中，本仓库不是包含该网关全部源码的一键部署包。
+
+## 源码与许可
+
+个人仓库：`enderzcx/partner-center`。创建时为私有仓库；远端托管不等于公开开源发布。
+
+迁入前端保留 new-api / QuantumNous 的版权与许可声明，适用上游条款见 [UPSTREAM-LICENSE](UPSTREAM-LICENSE)。合约等文件另有文件级 SPDX 标记，字体许可证随资源保存；不能把整个项目统一重新声明为原创 MIT 项目。
 
 ## 复现接入验收
 
