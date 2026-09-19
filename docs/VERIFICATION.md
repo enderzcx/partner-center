@@ -182,3 +182,10 @@ Ender明确要求“上线吧”。已发布代码b1e96c6对应的partner-demo:o
 ## 2026-09-19 C 版纵向脉冲页面发布
 
 Ender 选择 C 后授权“上线吧”。`/progress` 已替换为纵向脉冲链：前四个 Fuji 已验收节点亮起，后续阶段暗显；新权益合约明确标记本地验证、待接入 Fuji。保留 `/progress-lab` 三版比较。公网1440/375px、暂停动效、匿名API拒绝检查通过；容器 healthy、0重启；原3笔付款、已付3测试USDC和pending0保持一致。新合约代码已推送，但未部署或接入执行器。发布证据见 `evidence/pulse-v7-release.json`。
+
+
+## 2026-09-19 Avascan 链接修复与收款复核
+
+修复首页、进度页、控制台回执、旧客户端与讲稿的交易路径，统一 `/blockchain/c/tx/<hash>`；合约地址使用 `/blockchain/c/address/<address>`。首页和进度页复用回执链接 helper。收款凭证直达 `#logs`。22项相关测试、111断言与构建通过。发布 `partner-demo:explorer-v8`，备份 `backups/pre-explorer-v8-20260919`；公网进度页三个目标链接读回正确，原有账本不变。Builder Hub项目说明两条链接已更正，Final Submit再次返回成功。
+
+经Fuji官方RPC读取：收款交易success、block58462165，官方USDC日志index0为AuthorizationUsed、index1为Transfer：付款人0x28172e0d973fFf24651B6Ed4cA6d1007bc168C94，收款合约0x5c905e43e0BB381534530d5e05DF56ab1f420899，value10000000，decimals6，10测试USDC。Avascan LOGS页亦显示同一token/topics/data。外层0 AVAX是主币value，不能代表USDC金额；外层发送者为中继，接收者为Multicall3。证据见 `evidence/x402-incoming-recheck-20260919.json`。

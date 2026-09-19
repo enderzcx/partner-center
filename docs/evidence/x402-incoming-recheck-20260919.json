@@ -1,0 +1,27 @@
+{
+  "chainId": 43113,
+  "status": "success",
+  "block": "58462165",
+  "outerFrom": "0xc6699d2aada6c36dfea5c248dd70f9cb0235cb63",
+  "outerTo": "0xca11bde05977b3631167028862be2a173976ca11",
+  "token": "0x5425890298aed601595a70AB815c96711a31Bc65",
+  "decimals": 6,
+  "logs": [
+    {
+      "index": 0,
+      "event": "AuthorizationUsed",
+      "authorizer": "0x28172e0d973fFf24651B6Ed4cA6d1007bc168C94",
+      "nonce": "0x06804d328a264de350af122b4d2d2103869cd70de6728bab273110af020fd12a"
+    },
+    {
+      "index": 1,
+      "event": "Transfer",
+      "from": "0x28172e0d973fFf24651B6Ed4cA6d1007bc168C94",
+      "to": "0x5c905e43e0BB381534530d5e05DF56ab1f420899",
+      "value": "10000000",
+      "amount": "10"
+    }
+  ],
+  "checkedAt": "2026-09-19T04:38:38.991101+00:00",
+  "rpc": "https://api.avax-test.network/ext/bc/C/rpc"
+}
