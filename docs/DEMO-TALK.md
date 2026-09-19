@@ -32,8 +32,8 @@ BeefAPI 是我们的第一个接入案例。商家继续使用自己的订单和
 
 - 入口：https://partner.bflabs.app/
 - 目标订单：`fuji-x402-20260918-001`，不要点击创建新订单或支付按钮来重复此验收。
-- 买家付款：[10 测试 USDC](https://testnet.avascan.info/tx/0xd0df9f773a5d033e4ee0475a47cf48f54c653b778077662555e6c531d45104c6)。
-- 佣金出款：[1 测试 USDC](https://testnet.avascan.info/tx/0x6f9843b7c2d14211c07ef6d539a625cd4c8b1c962426b49ada6b15ac8fdea23d)。
+- 买家付款：[10 测试 USDC](https://testnet.avascan.info/blockchain/c/tx/0xd0df9f773a5d033e4ee0475a47cf48f54c653b778077662555e6c531d45104c6)。
+- 佣金出款：[1 测试 USDC](https://testnet.avascan.info/blockchain/c/tx/0x6f9843b7c2d14211c07ef6d539a625cd4c8b1c962426b49ada6b15ac8fdea23d)。
 - 商家与推广者是不同账号。切换时退出后登录，不能把本地测试角色切换描述为线上权限能力。来不及切换时留在回执即可。
 - 首句说明“下面回看一笔已经完成的真实测试网订单”，不把历史回执演示说成现场新付款。
 

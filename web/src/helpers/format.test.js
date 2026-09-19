@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import {
+  fujiExplorerTx,
   formatCommissionPercent,
   parseCommissionRate,
   precise,
@@ -60,4 +61,9 @@ describe('route and source guards', () => {
       ),
     ).toBe(false);
   });
+});
+
+it('uses the Avalanche C-Chain transaction route for Fuji receipts', () => {
+  const hash = '0xd0df9f773a5d033e4ee0475a47cf48f54c653b778077662555e6c531d45104c6';
+  expect(fujiExplorerTx(hash)).toBe(`https://testnet.avascan.info/blockchain/c/tx/${hash}`);
 });

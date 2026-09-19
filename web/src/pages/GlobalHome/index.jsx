@@ -24,6 +24,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import GlobalPublicHeader from '../../components/layout/GlobalPublicHeader';
 import GlobalPublicFooter from '../../components/layout/GlobalPublicFooter';
 import './global-home.css';
+import { fujiExplorerTx } from '../../helpers/format';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -385,7 +386,7 @@ const GlobalHome = () => {
                         {COPY.receiptTotal}
                       </b>
                     </div>
-                    <a className='partner-public-proof' href='https://testnet.avascan.info/tx/0x6f9843b7c2d14211c07ef6d539a625cd4c8b1c962426b49ada6b15ac8fdea23d' target='_blank' rel='noopener noreferrer'>查看这笔链上出款</a>
+                    <a className='partner-public-proof' href={fujiExplorerTx('0x6f9843b7c2d14211c07ef6d539a625cd4c8b1c962426b49ada6b15ac8fdea23d')} target='_blank' rel='noopener noreferrer'>查看这笔链上出款</a>
                   </div>
                 </div>
               </div>

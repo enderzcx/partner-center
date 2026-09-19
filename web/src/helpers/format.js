@@ -125,7 +125,7 @@ export function statusClass(status) {
 }
 
 export function fujiExplorerTx(hash) {
-  return 'https://testnet.snowtrace.io/tx/' + encodeURIComponent(hash);
+  return 'https://testnet.avascan.info/blockchain/c/tx/' + encodeURIComponent(hash);
 }
 
 export function networkLabel(chainId) {
