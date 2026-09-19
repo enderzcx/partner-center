@@ -3,7 +3,7 @@ type StaticFile = { file: string; type: string };
 // Explicit SPA routes keep unknown API paths and files out of the HTML fallback.
 const pages = new Set([
   '/', '/index.html', '/login', '/console', '/console/orders',
-  '/console/settlements', '/console/wallet', '/docs', '/progress',
+  '/console/settlements', '/console/wallet', '/docs', '/progress', '/progress-lab',
 ]);
 const types: Record<string, string> = {
   js: 'text/javascript; charset=utf-8',

@@ -30,6 +30,7 @@ const ConsoleSettlements = lazy(
   () => import('./pages/GlobalConsole/Settlements'),
 );
 const ConsoleWallet = lazy(() => import('./pages/GlobalConsole/Wallet'));
+const ProgressLab = lazy(() => import('./pages/ProgressLab'));
 const ProgressPage = lazy(() => import('./pages/Progress'));
 const DocsPage = lazy(() => import('./pages/Docs'));
 const NotFound = lazy(() => import('./pages/NotFound'));
@@ -49,6 +50,7 @@ function App() {
             </PublicOnlyRoute>
           }
         />
+        <Route path='/progress-lab' element={<ProgressLab />} />
         <Route path='/progress' element={<ProgressPage />} />
         <Route path='/docs' element={<DocsPage />} />
         <Route
