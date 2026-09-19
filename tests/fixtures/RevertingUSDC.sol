@@ -7,14 +7,17 @@ contract RevertingUSDC {
     uint8 public constant decimals = 6;
     mapping(address => uint256) public balanceOf;
     bool public revertTransfers;
+    bool public returnFalse;
     event Transfer(address indexed from, address indexed to, uint256 value);
     constructor() {
         require(block.chainid == 31337, "testnet only");
         balanceOf[msg.sender] = 1_000_000 * 10 ** 6;
     }
     function setRevertTransfers(bool v) external { revertTransfers = v; }
+    function setReturnFalse(bool v) external { returnFalse = v; }
     function transfer(address to, uint256 value) external returns (bool) {
         require(!revertTransfers, "forced revert");
+        if (returnFalse) return false;
         require(to != address(0) && balanceOf[msg.sender] >= value, "invalid transfer");
         balanceOf[msg.sender] -= value;
         balanceOf[to] += value;

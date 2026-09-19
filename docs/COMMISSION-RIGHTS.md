@@ -20,7 +20,7 @@
 
 先把测试 USDC 直接转入合约，再按当时余额登记。没有 `deposit`。实际到账多少，才能预留多少；若代币在转入时扣费，只能登记扣费后留在合约里的金额。
 
-不变量：`totalReserved <= token.balanceOf(address(this))`。业务编号用过一次就不能再用，包括领取之后。
+对固定的等额转账、非 rebasing 代币保持不变量：`totalReserved <= token.balanceOf(address(this))`。不承诺任意扣费代币兼容，也无法绕过代币发行方的冻结、暂停或升级权限。业务编号用过一次就不能再用，包括领取之后。
 
 领取走 Checks-Effects-Interactions：先把权益标成已领并减少预留，再 `SafeERC20` 转账，且 `nonReentrant`。转账失败则整笔回滚，编号不会被消耗。
 
@@ -41,3 +41,11 @@ bun test tests/commission-escrow.test.ts
 ```
 
 真实本地 Ganache + viem。不部署公网、不转真实资金、不读取 `.local` 或环境私钥。
+
+## 主会话独立审查
+
+审查范围为新增合约、编译入口与调用方。没有新增依赖，没有把新账本接入现有生产路径，旧 Settlement 合约不变。对正常等额转账代币，登记增加 R 且 R<=B；领取同时减少 B/R；提现最多减少 B-R。合约没有升级、任意调用或代币 approve 入口。
+
+独立检查补充了管理员自授登记权后覆盖编号/超额登记/提取预留失败，以及撤销角色、暂停后陌生人仍能为原受益人领取的测试。转账 revert 和返回 false 均保持权益可重试，恢复后成功一次，再次领取失败。未进行第三方安全审计或针对恶意 token 的完整重入攻击测试。
+
+集成后验证：`bun run typecheck` 通过；`bun test --timeout 30000` 为 131 pass / 0 fail / 1068 assertions。没有进行新 Fuji 部署或付款。

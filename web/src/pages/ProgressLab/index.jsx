@@ -5,7 +5,7 @@ const nodes = [
   ['钱包付款','x402 · 10 测试 USDC','02'],
   ['确认佣金','业务账本 · 1 测试 USDC','03'],
   ['伙伴到账','链上出款 · 账本完成','04'],
-  ['锁定权益','合约升级 · 本地开发中','05'],
+  ['锁定权益','本地已验证 · 待接入 Fuji','05'],
   ['自主领取','下一阶段 · 待接入验证','06'],
   ['更多商家','后续规划 · 生产验收','07'],
 ];
@@ -29,7 +29,7 @@ export default function ProgressLab({preview=true}){
     </svg>
     <div className='chain-beam' aria-hidden='true'/>
     <ol>{nodes.map(([name,detail,number],i)=><li key={number} className={i<4?'chain-node is-done':'chain-node is-next'} style={{'--i':i}}>
-      <div className='chain-junction' aria-hidden='true'><span/></div><span className='chain-step'>{number} / {i<4?'已验证':i===4?'开发中':'待验证'}</span><h2>{name}</h2><p>{detail}</p>{i===1&&<a href={incoming} target='_blank' rel='noreferrer'>收款凭证 ↗</a>}{i===3&&<a href={outgoing} target='_blank' rel='noreferrer'>到账凭证 ↗</a>}
+      <div className='chain-junction' aria-hidden='true'><span/></div><span className='chain-step'>{number} / {i<4?'已验证':i===4?'本地验证':'待验证'}</span><h2>{name}</h2><p>{detail}</p>{i===1&&<a href={incoming} target='_blank' rel='noreferrer'>收款凭证 ↗</a>}{i===3&&<a href={outgoing} target='_blank' rel='noreferrer'>到账凭证 ↗</a>}
     </li>)}</ol>
   </section>
   <footer className='chain-caption'><div><span>已完成案例 · 2026.09.18</span><p>10 测试 USDC 收款 → 10% 佣金 → 1 测试 USDC 到账</p></div><p>动画为历史流程示意，不发起付款。<br/>Avalanche Fuji 测试资金无实际价值。</p></footer>

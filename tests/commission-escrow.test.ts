@@ -37,6 +37,7 @@ const tokenAbi = parseAbi([
   "function transfer(address,uint256) returns (bool)",
   "function balanceOf(address) view returns (uint256)",
   "function setRevertTransfers(bool)",
+  "function setReturnFalse(bool)",
 ]);
 
 function key(n: number): Hex {
@@ -519,6 +520,18 @@ test(
         1n,
         0n,
       ]);
+      // Administrative escalation cannot consume existing registered rights.
+      await receiptOf(admin.writeContract({address:escrow,abi:escrowAbi,functionName:"grantRole",args:[REGISTRAR_ROLE,admin.account.address]}),publicClient);
+      await expectReverted(admin,publicClient,escrow,"register",[idD,admin.account.address,1n,0n]);
+      await expectReverted(admin,publicClient,escrow,"register",[keccak256(toHex("steal-reserved")),admin.account.address,1n,0n]);
+      await expectReverted(admin,publicClient,escrow,"withdrawSurplus",[admin.account.address,1n]);
+      await receiptOf(admin.writeContract({address:escrow,abi:escrowAbi,functionName:"revokeRole",args:[REGISTRAR_ROLE,registrar.account.address]}),publicClient);
+      await receiptOf(admin.writeContract({address:escrow,abi:escrowAbi,functionName:"pause"}),publicClient);
+      const beneficiaryBefore = await balanceOf(publicClient,token,beneficiary.account.address);
+      await receiptOf(stranger.writeContract({address:escrow,abi:escrowAbi,functionName:"claim",args:[idD]}),publicClient);
+      expect(await balanceOf(publicClient,token,beneficiary.account.address)).toBe(beneficiaryBefore+1_000_000n);
+      expect(await read(publicClient,escrow,"totalReserved")).toBe(0n);
+      await expectReverted(stranger,publicClient,escrow,"claim",[idD]);
     });
   },
   TIMEOUT,
@@ -561,9 +574,8 @@ test(
         }),
         local.publicClient,
       );
-      await expectReverted(local.stranger, local.publicClient, escrow, "claim", [
-        id,
-      ]);
+      const failed = await expectReverted(local.stranger, local.publicClient, escrow, "claim", [id]);
+      expect(eventName(failed, escrow, "Claimed")).toBe(false);
       expect(await read(local.publicClient, escrow, "totalReserved")).toBe(amount);
       expect((await right(local.publicClient, escrow, id)).status).toBe(1);
       expect(
@@ -574,6 +586,16 @@ test(
         ),
       ).toBe(0n);
       expect(await balanceOf(local.publicClient, token, escrow)).toBe(amount);
+      await receiptOf(local.admin.writeContract({address:token,abi:tokenAbi,functionName:"setRevertTransfers",args:[false]}),local.publicClient);
+      await receiptOf(local.admin.writeContract({address:token,abi:tokenAbi,functionName:"setReturnFalse",args:[true]}),local.publicClient);
+      await expectReverted(local.stranger,local.publicClient,escrow,"claim",[id]);
+      expect(await read(local.publicClient,escrow,"totalReserved")).toBe(amount);
+      expect((await right(local.publicClient,escrow,id)).status).toBe(1);
+      await receiptOf(local.admin.writeContract({address:token,abi:tokenAbi,functionName:"setReturnFalse",args:[false]}),local.publicClient);
+      await receiptOf(local.beneficiary.writeContract({address:escrow,abi:escrowAbi,functionName:"claim",args:[id]}),local.publicClient);
+      expect(await balanceOf(local.publicClient,token,local.beneficiary.account.address)).toBe(amount);
+      expect(await read(local.publicClient,escrow,"totalReserved")).toBe(0n);
+      await expectReverted(local.stranger,local.publicClient,escrow,"claim",[id]);
     });
   },
   TIMEOUT,
@@ -730,6 +752,7 @@ async function expectReverted(
     data: encodeFunctionData({ abi: escrowAbi, functionName, args }),
   });
   expect(receipt.status).toBe("reverted");
+  return receipt;
 }
 
 async function receiptOf(hashPromise: Promise<Hex>, publicClient: TestPublic) {
